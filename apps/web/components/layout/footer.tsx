@@ -165,17 +165,17 @@ export function Footer() {
                   Philippines
                 </span>
               </li>
-              <li className="flex items-center gap-2">
+              {/* <li className="flex items-center gap-2">
                 <Phone className="h-4 w-4 shrink-0 text-background/40" />
                 <span>+63 (82) 123-4567</span>
-              </li>
+              </li> */}
               <li className="flex items-center gap-2">
                 <Mail className="h-4 w-4 shrink-0 text-background/40" />
                 <a
-                  href="mailto:rganxi2023@gmail.com"
+                  href="mailto:journal.grp@gmail.com"
                   className="hover:text-background transition-colors"
                 >
-                  rganxi2023@gmail.com
+                  journal.grp@gmail.com
                 </a>
               </li>
             </ul>
