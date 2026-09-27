@@ -27,7 +27,14 @@ import type { Expert, Officer } from "@gad/types";
 export const metadata: Metadata = {
   title: "About",
   description:
-    "Learn about RGAN XI — the Region XI Gender and Development Advocates Network — our mission, vision, founding officers, and advocacy.",
+    "Learn about RGAN XI, the Region XI Gender and Development Advocates Network. Our mission, vision, founding officers, and advocacy.",
+  alternates: { canonical: "/about" },
+  openGraph: {
+    title: "About RGAN XI",
+    description:
+      "Learn about RGAN XI, the Region XI Gender and Development Advocates Network. Our mission, vision, founding officers, and advocacy.",
+    url: "/about",
+  },
 };
 
 // const milestones = [

@@ -11,6 +11,7 @@ export const metadata: Metadata = {
   title: "Archive",
   description:
     "Search the full archive of the Gender Research and Policy Journal (GRPJ), published by RGAN XI.",
+  alternates: { canonical: "/issue/archive" },
 };
 
 function plainText(html?: string) {

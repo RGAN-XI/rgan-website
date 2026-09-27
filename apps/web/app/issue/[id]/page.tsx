@@ -15,8 +15,21 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const result = await getIssueById(params.id);
   if (!result) return { title: "Issue" };
   const { issue } = result;
+  const title = `Vol. ${issue.volume}, Issue ${issue.issueNo}`;
+  const description = `Gender Research and Policy Journal, Vol. ${issue.volume} No. ${issue.issueNo}, published ${issue.date} by RGAN XI. ISSN ${issue.issn}.`;
+  const canonical = `/issue/${issue.id}`;
+
   return {
-    title: `Vol. ${issue.volume}, Issue ${issue.issueNo}`,
+    title,
+    description,
+    alternates: { canonical },
+    openGraph: {
+      title,
+      description,
+      url: canonical,
+      type: "article",
+      images: issue.coverImage ? [{ url: issue.coverImage }] : undefined,
+    },
   };
 }
 

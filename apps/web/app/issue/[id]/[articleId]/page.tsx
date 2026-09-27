@@ -15,6 +15,7 @@ import { PdfDownloadButton } from "@/components/journal/pdf-download-button";
 import { Badge } from "@gad/components/ui/badge";
 import { formatDateShort } from "@/lib/utils";
 import { formatAuthorName } from "@/lib/authors";
+import { absoluteUrl } from "@/lib/seo";
 import { images } from "@/constants/images";
 import {
   ArrowLeft,
@@ -101,14 +102,67 @@ function buildCitation(issue: Issue, article: IssueArticle) {
   };
 }
 
+function buildArticleJsonLd(issue: Issue, article: IssueArticle, canonical: string) {
+  const authorNames =
+    article.authors.length > 0
+      ? article.authors.map((author) => formatAuthorName(author))
+      : ["RGAN XI Editorial Team"];
+
+  return {
+    "@context": "https://schema.org",
+    "@type": "ScholarlyArticle",
+    headline: article.title,
+    abstract: plainText(article.abstract) || undefined,
+    datePublished: issue.publishedAt,
+    url: absoluteUrl(canonical),
+    isPartOf: {
+      "@type": "Periodical",
+      name: "Gender Research and Policy Journal",
+      issn: issue.issn,
+    },
+    author: authorNames.map((name) => ({ "@type": "Person", name })),
+    keywords: article.keywords.length > 0 ? article.keywords.join(", ") : undefined,
+    ...(article.doi ? { sameAs: `https://doi.org/${article.doi}` } : {}),
+    ...(article.pdfUrl ? { encoding: { "@type": "MediaObject", contentUrl: article.pdfUrl } } : {}),
+  };
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const result = await getArticle(params.id, params.articleId);
   if (!result) return { title: "Article" };
+  const { issue, article } = result;
+  const description =
+    plainText(article.abstract) ||
+    "An article from the Gender Research and Policy Journal.";
+  const canonical = `/issue/${issue.id}/${article.id}`;
+  const authorNames =
+    article.authors.length > 0
+      ? article.authors.map((author) => `${author.lastname}, ${author.firstname}`)
+      : ["RGAN XI Editorial Team"];
+
   return {
-    title: result.article.title,
-    description:
-      plainText(result.article.abstract) ||
-      "An article from the Gender Research and Policy Journal.",
+    title: article.title,
+    description,
+    alternates: { canonical },
+    openGraph: {
+      title: article.title,
+      description,
+      url: canonical,
+      type: "article",
+      publishedTime: issue.publishedAt,
+      images: issue.coverImage ? [{ url: issue.coverImage }] : undefined,
+    },
+    // Highwire Press tags: the metadata format Google Scholar reads to
+    // index individual journal articles for citation and discovery.
+    other: {
+      citation_title: article.title,
+      citation_author: authorNames,
+      citation_publication_date: issue.publishedAt,
+      citation_journal_title: "Gender Research and Policy Journal",
+      citation_issn: issue.issn,
+      ...(article.doi ? { citation_doi: article.doi } : {}),
+      ...(article.pdfUrl ? { citation_pdf_url: article.pdfUrl } : {}),
+    },
   };
 }
 
@@ -117,9 +171,19 @@ export default async function ArticleDetailPage({ params }: Props) {
   if (!result) notFound();
   const { issue, article, metrics } = result;
   const citation = buildCitation(issue, article);
+  const articleJsonLd = buildArticleJsonLd(
+    issue,
+    article,
+    `/issue/${issue.id}/${article.id}`,
+  );
 
   return (
     <div className="pt-20">
+      <script
+        type="application/ld+json"
+        // eslint-disable-next-line react/no-danger
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }}
+      />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <Link
           href={`/issue/${issue.id}`}

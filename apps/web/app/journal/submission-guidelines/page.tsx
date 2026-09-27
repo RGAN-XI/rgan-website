@@ -24,6 +24,7 @@ export const metadata: Metadata = {
   title: "Submission Guidelines — GRPJ",
   description:
     "Manuscript types, formatting, and submission requirements for the Gender Research and Policy Journal (GRPJ).",
+  alternates: { canonical: "/journal/submission-guidelines" },
 };
 
 const manuscriptTypes = [

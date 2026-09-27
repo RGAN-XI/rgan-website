@@ -10,6 +10,7 @@ export const metadata: Metadata = {
   title: "Reviewer Database — GRPJ",
   description:
     "The international database of peer reviewers supporting the Gender Research and Policy Journal (GRPJ), published by RGAN XI.",
+  alternates: { canonical: "/journal/editorial-board/reviewers" },
 };
 
 // Always fetch the latest reviewers on each request instead of serving a

@@ -15,12 +15,22 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const announcement = await getAnnouncementBySlug(params.slug);
   if (!announcement) return { title: "Announcement" };
 
+  const canonical = `/announcements/${announcement.slug}`;
+  const description = truncateWords(announcement.description, 30);
+
   return {
     title: announcement.title,
-    description: truncateWords(announcement.description, 30),
-    openGraph: announcement.coverImage
-      ? { images: [{ url: announcement.coverImage }] }
-      : undefined,
+    description,
+    alternates: { canonical },
+    openGraph: {
+      title: announcement.title,
+      description,
+      url: canonical,
+      type: "article",
+      images: announcement.coverImage
+        ? [{ url: announcement.coverImage }]
+        : undefined,
+    },
   };
 }
 

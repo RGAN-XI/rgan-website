@@ -9,6 +9,7 @@ export const metadata: Metadata = {
   title: "Publication Ethics & Integrity — GRPJ",
   description:
     "The publication ethics and research integrity policy of the Gender Research and Policy Journal (GRPJ), published by RGAN XI, aligned with COPE, ICMJE, DOAJ, OASPA, and WAME guidance.",
+  alternates: { canonical: "/journal/publication-ethics" },
 };
 
 const ethicsPillars = [

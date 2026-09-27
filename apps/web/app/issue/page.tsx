@@ -10,6 +10,7 @@ export const metadata: Metadata = {
   title: "Current Issue",
   description:
     "Read the current issue of the Gender Research and Policy Journal (GRPJ), published by RGAN XI.",
+  alternates: { canonical: "/issue" },
 };
 
 export default async function CurrentIssuePage() {

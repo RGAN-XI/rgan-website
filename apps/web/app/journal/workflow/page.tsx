@@ -9,6 +9,7 @@ export const metadata: Metadata = {
   title: "Submission & Publication Workflow — GRPJ",
   description:
     "The 14-step editorial workflow, from manuscript submission through post-publication monitoring, for the Gender Research and Policy Journal (GRPJ).",
+  alternates: { canonical: "/journal/workflow" },
 };
 
 const steps = [

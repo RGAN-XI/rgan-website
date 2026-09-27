@@ -21,6 +21,7 @@ export const metadata: Metadata = {
   title: "Peer Review Policy — GRPJ",
   description:
     "The double-blind peer review policy of the Gender Research and Policy Journal (GRPJ), published by RGAN XI.",
+  alternates: { canonical: "/journal/peer-review-policy" },
 };
 
 export default function PeerReviewPolicyPage() {

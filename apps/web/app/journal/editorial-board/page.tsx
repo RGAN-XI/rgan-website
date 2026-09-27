@@ -22,6 +22,7 @@ export const metadata: Metadata = {
   title: "Editorial Board & Contact — GRPJ",
   description:
     "The Editorial Board, editorial office, and contact information for the Gender Research and Policy Journal (GRPJ), published by RGAN XI.",
+  alternates: { canonical: "/journal/editorial-board" },
 };
 
 const gradients = [
