@@ -55,7 +55,7 @@ const organizationJsonLd = {
   alternateName: 'Region XI Gender and Development Advocates Network',
   url: SITE_URL,
   logo: `${SITE_URL}${ogImage.src}`,
-  email: 'rganxi2023@gmail.com',
+  email: 'journal.grp@gmail.com',
   sameAs: [],
 }
 
