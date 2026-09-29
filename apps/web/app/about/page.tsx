@@ -23,17 +23,23 @@ import Image from "next/image";
 import { getExperts } from "@/services/expert";
 import { getOfficers } from "@/services/officer";
 import type { Expert, Officer } from "@gad/types";
+import { ABOUT_TITLE } from "@/lib/seo";
 
 export const metadata: Metadata = {
-  title: "About",
+  title: { absolute: ABOUT_TITLE },
   description:
     "Learn about RGAN XI, the Region XI Gender and Development Advocates Network. Our mission, vision, founding officers, and advocacy.",
   alternates: { canonical: "/about" },
   openGraph: {
-    title: "About RGAN XI",
+    title: ABOUT_TITLE,
     description:
       "Learn about RGAN XI, the Region XI Gender and Development Advocates Network. Our mission, vision, founding officers, and advocacy.",
     url: "/about",
+  },
+  twitter: {
+    title: ABOUT_TITLE,
+    description:
+      "Learn about RGAN XI, the Region XI Gender and Development Advocates Network. Our mission, vision, founding officers, and advocacy.",
   },
 };
 

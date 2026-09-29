@@ -6,11 +6,11 @@ import { ProgressProvider } from '@gad/context/progress-context'
 import { SlimBar } from '@gad/components/ui/slim-bar'
 import { Analytics } from '@vercel/analytics/next'
 import { SpeedInsights } from '@vercel/speed-insights/next'
-import { SITE_NAME, SITE_URL } from '@/lib/seo'
+import { HOME_TITLE, SITE_NAME, SITE_URL } from '@/lib/seo'
 import ogImage from '@gad/assets/images/RGAN XI logo landscape.png'
 
 const title = {
-  default: 'RGAN XI | GAD Advocates Network',
+  default: HOME_TITLE,
   template: '%s | RGAN XI',
 }
 const description =
@@ -55,7 +55,7 @@ const organizationJsonLd = {
   alternateName: 'Region XI Gender and Development Advocates Network',
   url: SITE_URL,
   logo: `${SITE_URL}${ogImage.src}`,
-  email: 'rganxi2023@gmail.com',
+  email: 'journal.grp@gmail.com',
   sameAs: [],
 }
 

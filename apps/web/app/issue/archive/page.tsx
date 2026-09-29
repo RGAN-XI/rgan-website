@@ -6,12 +6,19 @@ import { Hash, Search, User } from "lucide-react";
 import { getIssues } from "@/services/issue";
 import { IssueQuickLinks } from "@/components/journal/issue-quick-links";
 import { DoiLink } from "@/components/journal/doi-link";
+import { ARCHIVE_DESCRIPTION, ARCHIVE_TITLE } from "@/lib/seo";
 
 export const metadata: Metadata = {
-  title: "Archive",
-  description:
-    "Search the full archive of the Gender Research and Policy Journal (GRPJ), published by RGAN XI.",
+  title: { absolute: ARCHIVE_TITLE },
+  description: ARCHIVE_DESCRIPTION,
   alternates: { canonical: "/issue/archive" },
+  openGraph: {
+    title: ARCHIVE_TITLE,
+    description: ARCHIVE_DESCRIPTION,
+    url: "/issue/archive",
+    type: "website",
+  },
+  twitter: { title: ARCHIVE_TITLE, description: ARCHIVE_DESCRIPTION },
 };
 
 function plainText(html?: string) {

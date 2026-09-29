@@ -17,7 +17,7 @@ import {
 import { JournalTabs } from "@/components/journal/journal-tabs";
 
 export const metadata: Metadata = {
-  title: "Gender Research & Policy Journal",
+  title: "Gender Research and Policy Journal",
   description:
     "The Gender Research and Policy Journal (GRPJ) is a peer-reviewed, open-access journal published by RGAN XI. ISSN 3082-5431 (Print). Published biannually.",
   alternates: { canonical: "/journal" },

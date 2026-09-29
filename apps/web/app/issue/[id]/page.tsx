@@ -6,21 +6,34 @@ import { getIssueById } from "@/services/issue";
 import { IssueContent } from "@/components/journal/issue-content";
 import { IssueQuickLinks } from "@/components/journal/issue-quick-links";
 import { ArrowLeft } from "lucide-react";
+import {
+  JOURNAL_FALLBACK_TITLE,
+  buildIssueDescription,
+  buildIssueTitle,
+} from "@/lib/seo";
 
 interface Props {
   params: { id: string };
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const result = await getIssueById(params.id);
-  if (!result) return { title: "Issue" };
+  // A data-source hiccup must never break the page head; fall back to a
+  // safe, generic journal title instead.
+  let result: Awaited<ReturnType<typeof getIssueById>> = null;
+  try {
+    result = await getIssueById(params.id);
+  } catch {
+    result = null;
+  }
+  if (!result) return { title: { absolute: JOURNAL_FALLBACK_TITLE } };
+
   const { issue } = result;
-  const title = `Vol. ${issue.volume}, Issue ${issue.issueNo}`;
-  const description = `Gender Research and Policy Journal, Vol. ${issue.volume} No. ${issue.issueNo}, published ${issue.date} by RGAN XI. ISSN ${issue.issn}.`;
+  const title = buildIssueTitle(issue);
+  const description = buildIssueDescription(issue);
   const canonical = `/issue/${issue.id}`;
 
   return {
-    title,
+    title: { absolute: title },
     description,
     alternates: { canonical },
     openGraph: {
@@ -30,6 +43,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       type: "article",
       images: issue.coverImage ? [{ url: issue.coverImage }] : undefined,
     },
+    twitter: { title, description },
   };
 }
 

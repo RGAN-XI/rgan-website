@@ -15,7 +15,12 @@ import { PdfDownloadButton } from "@/components/journal/pdf-download-button";
 import { Badge } from "@gad/components/ui/badge";
 import { formatDateShort } from "@/lib/utils";
 import { formatAuthorName } from "@/lib/authors";
-import { absoluteUrl } from "@/lib/seo";
+import {
+  ARTICLE_FALLBACK_DESCRIPTION,
+  JOURNAL_FALLBACK_TITLE,
+  absoluteUrl,
+  buildArticleTitle,
+} from "@/lib/seo";
 import { images } from "@/constants/images";
 import {
   ArrowLeft,
@@ -128,12 +133,19 @@ function buildArticleJsonLd(issue: Issue, article: IssueArticle, canonical: stri
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const result = await getArticle(params.id, params.articleId);
-  if (!result) return { title: "Article" };
+  // A data-source hiccup must never break the page head; fall back to a
+  // safe, generic journal title instead.
+  let result: Awaited<ReturnType<typeof getArticle>> = null;
+  try {
+    result = await getArticle(params.id, params.articleId);
+  } catch {
+    result = null;
+  }
+  if (!result) return { title: { absolute: JOURNAL_FALLBACK_TITLE } };
   const { issue, article } = result;
+  const seoTitle = buildArticleTitle(article.title);
   const description =
-    plainText(article.abstract) ||
-    "An article from the Gender Research and Policy Journal.";
+    plainText(article.abstract) || ARTICLE_FALLBACK_DESCRIPTION;
   const canonical = `/issue/${issue.id}/${article.id}`;
   const authorNames =
     article.authors.length > 0
@@ -141,17 +153,20 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       : ["RGAN XI Editorial Team"];
 
   return {
-    title: article.title,
+    // Only the <title> tag is optimized. The article H1, citation tags and
+    // JSON-LD headline keep the full, unmodified article title.
+    title: { absolute: seoTitle },
     description,
     alternates: { canonical },
     openGraph: {
-      title: article.title,
+      title: seoTitle,
       description,
       url: canonical,
       type: "article",
       publishedTime: issue.publishedAt,
       images: issue.coverImage ? [{ url: issue.coverImage }] : undefined,
     },
+    twitter: { title: seoTitle, description },
     // Highwire Press tags: the metadata format Google Scholar reads to
     // index individual journal articles for citation and discovery.
     other: {

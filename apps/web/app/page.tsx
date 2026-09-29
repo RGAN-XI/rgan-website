@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { HeroSection } from "@/components/home/hero-section";
 import { ResearchAreasSection } from "@/components/home/research-areas-section";
 import { FeaturedArticlesSection } from "@/components/home/featured-articles-section";
@@ -6,6 +7,21 @@ import Link from "next/link";
 import { Button } from "@gad/components/ui/button";
 import { ArrowRight } from "lucide-react";
 import { getIssueById, getIssues } from "@/services/issue";
+import { HOME_DESCRIPTION, HOME_TITLE, SITE_NAME } from "@/lib/seo";
+
+export const metadata: Metadata = {
+  title: { absolute: HOME_TITLE },
+  description: HOME_DESCRIPTION,
+  alternates: { canonical: "/" },
+  openGraph: {
+    title: HOME_TITLE,
+    description: HOME_DESCRIPTION,
+    url: "/",
+    type: "website",
+    siteName: SITE_NAME,
+  },
+  twitter: { title: HOME_TITLE, description: HOME_DESCRIPTION },
+};
 
 export default async function HomePage() {
   const issues = await getIssues();
