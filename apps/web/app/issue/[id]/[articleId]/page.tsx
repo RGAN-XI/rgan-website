@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { getIssueById } from "@/services/issue";
-import { getArticleMetrics, recordArticleView } from "@/services/article-metrics";
+import { getArticleMetrics } from "@/services/article-metrics";
 import { type Issue, IssueArticle, ArticleAuthor } from "@gad/types/issue";
 import type { ArticleMetrics } from "@gad/types/article-metrics";
 import { IssueCover } from "@/components/journal/issue-cover";
@@ -12,6 +12,7 @@ import { IssueQuickLinks } from "@/components/journal/issue-quick-links";
 import { CiteButton } from "@/components/journal/cite-button";
 import { AltmetricBadge } from "@/components/journal/altmetric-badge";
 import { PdfDownloadButton } from "@/components/journal/pdf-download-button";
+import { ArticleViewTracker } from "@/components/journal/article-view-tracker";
 import { Badge } from "@gad/components/ui/badge";
 import { formatDateShort } from "@/lib/utils";
 import { formatAuthorName } from "@/lib/authors";
@@ -46,21 +47,20 @@ function plainText(html?: string) {
     : "";
 }
 
-// Wrapped in React's cache() so generateMetadata and the page body, which
-// both call this per request, share one execution instead of fetching the
-// article (and recording the view) twice.
+// Wrapped in React's cache() so generateMetadata and the page body share one
+// execution instead of fetching the article twice. Views are no longer
+// recorded here; see <ArticleViewTracker />.
 const getArticle = cache(async (issueId: string, articleId: string) => {
   const result = await getIssueById(issueId);
   if (!result) return null;
   const article = result.articles.find((a) => a.id === articleId);
   if (!article) return null;
 
-  // Metrics are best-effort: a read/write hiccup here should never keep
-  // the article itself from rendering.
+  // Metrics are best-effort: a read hiccup here should never keep the
+  // article itself from rendering.
   let metrics: ArticleMetrics | null = null;
   try {
     metrics = await getArticleMetrics(article.id);
-    await recordArticleView(article.id);
   } catch {
     // Ignore; metrics will simply show as unavailable for this request.
   }
@@ -194,6 +194,7 @@ export default async function ArticleDetailPage({ params }: Props) {
 
   return (
     <div className="pt-20">
+      <ArticleViewTracker articleId={article.id} />
       <script
         type="application/ld+json"
         // eslint-disable-next-line react/no-danger

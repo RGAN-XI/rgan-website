@@ -1,4 +1,5 @@
-import { createClient } from "@gad/supabase/server";
+import { cache } from "react";
+import { createClient } from "@gad/supabase/public";
 import type { Database } from "@gad/supabase/types";
 import type { Issue, IssueArticle, ArticleAuthor } from "@gad/types/issue";
 
@@ -11,7 +12,7 @@ function formatIssueDate(value: string): string {
   }).format(new Date(`${value}T00:00:00Z`));
 }
 
-export async function getIssues(): Promise<Issue[]> {
+export const getIssues = cache(async (): Promise<Issue[]> => {
   const { data, error } = await createClient()
     .from("archive")
     .select("*")
@@ -33,11 +34,11 @@ export async function getIssues(): Promise<Issue[]> {
     isCurrent: item.is_current,
     date: formatIssueDate(item.published_at),
   }));
-}
+});
 
-export async function getIssueById(
+export const getIssueById = cache(async (
   id: string,
-): Promise<{ issue: Issue; articles: IssueArticle[] } | null> {
+): Promise<{ issue: Issue; articles: IssueArticle[] } | null> => {
   const { data, error } = await createClient()
     .from("archive")
     .select("*, articles(*, authors(*))")
@@ -99,4 +100,4 @@ export async function getIssueById(
   });
 
   return { issue, articles };
-}
+});

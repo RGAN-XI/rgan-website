@@ -255,14 +255,16 @@ function MemberGrid({ members }: { members: Member[] }) {
           className="group bg-white rounded-2xl border border-border p-6 hover:shadow-md transition-all hover:-translate-y-0.5 duration-200"
         >
           <div
-            className={`w-12 h-12 rounded-xl bg-gradient-to-br ${gradients[i % gradients.length]} flex items-center justify-center text-white font-display font-bold mb-4 group-hover:scale-105 transition-transform`}
+            className={`relative w-14 h-14 overflow-hidden rounded-2xl bg-gradient-to-br ${gradients[i % gradients.length]} flex items-center justify-center text-white font-display font-bold mb-4 group-hover:scale-105 transition-transform`}
           >
             {initials(member.name)}
             {member.profile && (
               <Image
                 src={member.profile}
                 alt={member.name}
-                className="w-14 h-14 rounded-2xl object-cover absolute "
+                fill
+                sizes="56px"
+                className="object-cover"
               />
             )}
           </div>

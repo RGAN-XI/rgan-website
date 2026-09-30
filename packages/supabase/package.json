@@ -7,6 +7,7 @@
     ".": "./client.ts",
     "./client": "./client.ts",
     "./server": "./server.ts",
+    "./public": "./public.ts",
     "./types": "./types.ts"
   },
   "dependencies": {

@@ -57,6 +57,7 @@ export function Footer() {
               >
                 <Image
                   className="h-full w-full object-contain"
+                  sizes="48px"
                   src={images.ched_logo}
                   alt="CHED Logo"
                 />
@@ -67,6 +68,7 @@ export function Footer() {
               >
                 <Image
                   className="h-full w-full object-contain"
+                  sizes="48px"
                   src={images.ddosc_logo}
                   alt="DDOSC Logo"
                 />
@@ -77,6 +79,7 @@ export function Footer() {
               >
                 <Image
                   className="h-full w-full object-contain"
+                  sizes="48px"
                   src={images.dnsc_logo}
                   alt="DNSC Logo"
                 />
@@ -87,6 +90,7 @@ export function Footer() {
               >
                 <Image
                   className="h-full w-full object-contain"
+                  sizes="48px"
                   src={images.dorsu_logo}
                   alt="DOrSU Logo"
                 />
@@ -97,6 +101,7 @@ export function Footer() {
               >
                 <Image
                   className="h-full w-full object-contain"
+                  sizes="48px"
                   src={images.dssc_logo}
                   alt="DSSC Logo"
                 />
@@ -107,6 +112,7 @@ export function Footer() {
               >
                 <Image
                   className="h-full w-full object-contain"
+                  sizes="48px"
                   src={images.spamast_logo}
                   alt="SPAMAST Logo"
                 />
@@ -117,6 +123,7 @@ export function Footer() {
               >
                 <Image
                   className="h-full w-full object-contain"
+                  sizes="48px"
                   src={images.usep_logo}
                   alt="USeP Logo"
                 />

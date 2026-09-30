@@ -13,10 +13,9 @@ export const metadata: Metadata = {
   alternates: { canonical: "/journal/editorial-board/reviewers" },
 };
 
-// Always fetch the latest reviewers on each request instead of serving a
-// statically-generated (and possibly stale/empty) list from build time.
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+// Statically rendered and refreshed in the background every minute, so new
+// reviewers appear shortly after being added without a request-time fetch.
+export const revalidate = 60;
 
 const gradients = [
   "from-purple-500 to-pink-500",

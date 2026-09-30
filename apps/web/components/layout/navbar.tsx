@@ -61,7 +61,8 @@ export function Navbar() {
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
-    window.addEventListener("scroll", handleScroll);
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
@@ -83,6 +84,7 @@ export function Navbar() {
               <Image
                 src={logo}
                 className="w-full h-full object-contain"
+                sizes="40px"
                 alt="RGAN XI Logo"
               />
             </div>

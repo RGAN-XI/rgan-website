@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { DM_Mono, DM_Sans, Playfair_Display } from 'next/font/google'
 import './globals.css'
 import { Navbar } from '@/components/layout/navbar'
 import { Footer } from '@/components/layout/footer'
@@ -8,6 +9,33 @@ import { Analytics } from '@vercel/analytics/next'
 import { SpeedInsights } from '@vercel/speed-insights/next'
 import { HOME_TITLE, SITE_NAME, SITE_URL } from '@/lib/seo'
 import ogImage from '@gad/assets/images/RGAN XI logo landscape.png'
+
+// Self-hosted at build time by next/font. Replaces the render-blocking Google
+// Fonts @import that used to sit at the top of globals.css. The CSS variable
+// names match the ones tailwind.config.ts already reads.
+const fontDisplay = Playfair_Display({
+  subsets: ['latin'],
+  style: ['normal', 'italic'],
+  display: 'swap',
+  variable: '--font-display',
+})
+const fontBody = DM_Sans({
+  subsets: ['latin'],
+  style: ['normal', 'italic'],
+  display: 'swap',
+  variable: '--font-body',
+})
+const fontMono = DM_Mono({
+  subsets: ['latin'],
+  weight: ['400', '500'],
+  display: 'swap',
+  variable: '--font-mono',
+  preload: false,
+})
+
+// Public pages are statically rendered and refreshed in the background at
+// most once a minute (ISR) instead of hitting Supabase on every request.
+export const revalidate = 60
 
 const title = {
   default: HOME_TITLE,
@@ -65,7 +93,11 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html
+      lang="en"
+      className={`${fontDisplay.variable} ${fontBody.variable} ${fontMono.variable}`}
+      suppressHydrationWarning
+    >
       <body>
         <script
           type="application/ld+json"
