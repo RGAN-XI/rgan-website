@@ -193,7 +193,7 @@ export function Footer() {
 
         <div className="py-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-background/50">
           <p>&copy; {new Date().getFullYear()} RGAN XI. All rights reserved.</p>
-          <div className="flex gap-6">
+          {/* <div className="flex gap-6">
             <Link
               href="/privacy"
               className="hover:text-background/80 transition-colors"
@@ -206,7 +206,7 @@ export function Footer() {
             >
               Terms
             </Link>
-          </div>
+          </div> */}
         </div>
       </div>
     </footer>
