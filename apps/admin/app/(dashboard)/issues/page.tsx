@@ -1,6 +1,6 @@
 import React from "react";
 import Link from "next/link";
-import { formatDate } from "@/lib/utils";
+import { formatMonthYear } from "@/lib/utils";
 import { PlusCircle, Search, Edit, BadgeCheck } from "lucide-react";
 import type { Metadata } from "next";
 import { PaginationNav } from "@/components/pagination-nav";
@@ -124,7 +124,7 @@ export default async function IssuesListPage({
                     </td>
                     <td className="px-5 py-4 hidden sm:table-cell">
                       <span className="text-xs text-muted-foreground">
-                        {formatDate(issue.publishedAt)}
+                        {formatMonthYear(issue.publishedAt)}
                       </span>
                     </td>
                     <td className="px-5 py-4">

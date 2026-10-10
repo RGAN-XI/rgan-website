@@ -23,22 +23,97 @@ import {
 
 const ISSUE_COVER_MAX_SIZE_BYTES = 30 * 1024 * 1024; // 30MB
 
+const now = new Date();
+const CURRENT_MONTH = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1));
+
 export const DEFAULT_ISSUE_VALUES: IssueFormInput = {
   volume: 1,
   issueNo: 1,
   doi: "",
   issn: "",
   coverImage: "",
-  publishedAt: new Date(),
+  publishedAt: CURRENT_MONTH,
   isCurrent: false,
-  date: new Date(),
+  date: CURRENT_MONTH,
 };
 
-function toDateInputValue(value: unknown): string {
-  if (!value) return "";
+const MONTHS = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+
+const MIN_YEAR = 1900;
+const MAX_YEAR = 2100;
+
+const selectClassName =
+  "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
+
+function parseMonthYear(value: unknown): { month: string; year: string } {
+  if (!value) return { month: "", year: "" };
   const date = value instanceof Date ? value : new Date(value as string);
-  if (Number.isNaN(date.getTime())) return "";
-  return date.toISOString().slice(0, 10);
+  if (Number.isNaN(date.getTime())) return { month: "", year: "" };
+  return {
+    month: String(date.getUTCMonth() + 1),
+    year: String(date.getUTCFullYear()),
+  };
+}
+
+type MonthYearInputProps = {
+  value: unknown;
+  onChange: (value: Date | undefined) => void;
+};
+
+function MonthYearInput({ value, onChange }: MonthYearInputProps) {
+  const [parts, setParts] = React.useState(() => parseMonthYear(value));
+
+  const update = (next: { month: string; year: string }) => {
+    setParts(next);
+    const year = Number(next.year);
+    const valid =
+      next.month !== "" &&
+      Number.isInteger(year) &&
+      year >= MIN_YEAR &&
+      year <= MAX_YEAR;
+    onChange(valid ? new Date(Date.UTC(year, Number(next.month) - 1, 1)) : undefined);
+  };
+
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      <select
+        aria-label="Published month"
+        className={selectClassName}
+        value={parts.month}
+        onChange={(e) => update({ ...parts, month: e.target.value })}
+      >
+        <option value="">Month</option>
+        {MONTHS.map((name, index) => (
+          <option key={name} value={String(index + 1)}>
+            {name}
+          </option>
+        ))}
+      </select>
+      <Input
+        aria-label="Published year"
+        type="number"
+        inputMode="numeric"
+        min={MIN_YEAR}
+        max={MAX_YEAR}
+        placeholder="Year"
+        value={parts.year}
+        onChange={(e) => update({ ...parts, year: e.target.value })}
+      />
+    </div>
+  );
 }
 
 type IssueFormProps = {
@@ -244,19 +319,12 @@ export function IssueForm({
                 control={control}
                 name="publishedAt"
                 render={({ field }) => (
-                  <FormItem className="sm:max-w-xs">
-                    <FormLabel>Published Date *</FormLabel>
+                  <FormItem className="sm:max-w-sm">
+                    <FormLabel>Published Month and Year *</FormLabel>
                     <FormControl>
-                      <Input
-                        type="date"
-                        value={toDateInputValue(field.value)}
-                        onChange={(e) =>
-                          field.onChange(
-                            e.target.value
-                              ? new Date(e.target.value)
-                              : undefined,
-                          )
-                        }
+                      <MonthYearInput
+                        value={field.value}
+                        onChange={field.onChange}
                       />
                     </FormControl>
                     <FormMessage />

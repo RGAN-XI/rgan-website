@@ -17,12 +17,14 @@ export function formatDateShort(date: string | Date) {
   return new Intl.DateTimeFormat("en-PH", {
     month: "long",
     year: "numeric",
+    timeZone: "UTC",
   }).format(new Date(date));
 }
 
 export function formatYear(date: string | Date) {
   return new Intl.DateTimeFormat("en-PH", {
     year: "numeric",
+    timeZone: "UTC",
   }).format(new Date(date));
 }
 

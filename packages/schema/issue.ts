@@ -26,9 +26,15 @@ export const issueFormSchema = z.object({
     .nullable()
     .optional()
     .or(z.literal("")),
-  publishedAt: z.coerce.date({
-    errorMap: () => ({ message: "Enter a valid publish date" }),
-  }),
+  // Only the month and year matter. The value is normalized to the first day
+  // of the month (UTC) so the stored timestamp is stable.
+  publishedAt: z.coerce
+    .date({
+      errorMap: () => ({ message: "Select a published month and year" }),
+    })
+    .transform(
+      (value) => new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), 1)),
+    ),
   isCurrent: z.boolean().optional().default(false),
   date: z.coerce.date({
     errorMap: () => ({ message: "Enter a valid date" }),

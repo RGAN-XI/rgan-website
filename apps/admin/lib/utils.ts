@@ -11,6 +11,12 @@ export function formatDate(date: string | Date) {
   }).format(new Date(date))
 }
 
+export function formatMonthYear(date: string | Date) {
+  return new Intl.DateTimeFormat('en-PH', {
+    year: 'numeric', month: 'long', timeZone: 'UTC',
+  }).format(new Date(date))
+}
+
 export function formatCompactNumber(value: number) {
   return new Intl.NumberFormat('en-PH', {
     notation: 'compact',
