@@ -97,7 +97,7 @@ export function HeroSection({ issue, articles }: HeroSectionProps) {
             </div>
 
             {/* Stats */}
-            <div className="flex flex-wrap gap-8">
+            {/* <div className="flex flex-wrap gap-8">
               {stats.map((stat) => (
                 <div key={stat.label} className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -113,7 +113,7 @@ export function HeroSection({ issue, articles }: HeroSectionProps) {
                   </div>
                 </div>
               ))}
-            </div>
+            </div> */}
           </div>
 
           {/* Visual */}
