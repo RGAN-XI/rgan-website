@@ -9,6 +9,7 @@ export const metadata: Metadata = {
   title: "Announcements",
   description:
     "Calls for papers, events, membership news, and updates from the Region XI Gender and Development Advocates Network (RGAN XI).",
+  alternates: { canonical: "/announcements" },
 };
 
 const DESCRIPTION_WORD_LIMIT = 30;

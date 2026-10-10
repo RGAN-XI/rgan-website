@@ -1,5 +1,5 @@
 import type { Announcement } from "@gad/types/announcement";
-import { createClient } from "@gad/supabase/server";
+import { createClient } from "@gad/supabase/public";
 import type { Database } from "@gad/supabase/types";
 
 export async function getAnnouncements(): Promise<Announcement[]> {

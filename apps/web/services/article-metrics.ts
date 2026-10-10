@@ -1,4 +1,4 @@
-import { createClient } from "@gad/supabase/server";
+import { createClient } from "@gad/supabase/public";
 import type { Database } from "@gad/supabase/types";
 import type { ArticleMetrics } from "@gad/types/article-metrics";
 
@@ -28,6 +28,8 @@ export async function getArticleMetrics(
     articleId: row.article_id,
     totalViews: row.total_views,
     totalDownloads: row.total_downloads,
+    citationCount: row.citation_count,
+    citationSyncedAt: row.citation_synced_at,
     updatedAt: row.updated_at,
   };
 }

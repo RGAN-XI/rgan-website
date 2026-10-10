@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { getIssueById } from "@/services/issue";
-import { getArticleMetrics, recordArticleView } from "@/services/article-metrics";
+import { getArticleMetrics } from "@/services/article-metrics";
 import { type Issue, IssueArticle, ArticleAuthor } from "@gad/types/issue";
 import type { ArticleMetrics } from "@gad/types/article-metrics";
 import { IssueCover } from "@/components/journal/issue-cover";
@@ -12,9 +12,16 @@ import { IssueQuickLinks } from "@/components/journal/issue-quick-links";
 import { CiteButton } from "@/components/journal/cite-button";
 import { AltmetricBadge } from "@/components/journal/altmetric-badge";
 import { PdfDownloadButton } from "@/components/journal/pdf-download-button";
+import { ArticleViewTracker } from "@/components/journal/article-view-tracker";
 import { Badge } from "@gad/components/ui/badge";
 import { formatDateShort } from "@/lib/utils";
 import { formatAuthorName } from "@/lib/authors";
+import {
+  ARTICLE_FALLBACK_DESCRIPTION,
+  JOURNAL_FALLBACK_TITLE,
+  absoluteUrl,
+  buildArticleTitle,
+} from "@/lib/seo";
 import { images } from "@/constants/images";
 import {
   ArrowLeft,
@@ -40,21 +47,20 @@ function plainText(html?: string) {
     : "";
 }
 
-// Wrapped in React's cache() so generateMetadata and the page body, which
-// both call this per request, share one execution instead of fetching the
-// article (and recording the view) twice.
+// Wrapped in React's cache() so generateMetadata and the page body share one
+// execution instead of fetching the article twice. Views are no longer
+// recorded here; see <ArticleViewTracker />.
 const getArticle = cache(async (issueId: string, articleId: string) => {
   const result = await getIssueById(issueId);
   if (!result) return null;
   const article = result.articles.find((a) => a.id === articleId);
   if (!article) return null;
 
-  // Metrics are best-effort: a read/write hiccup here should never keep
-  // the article itself from rendering.
+  // Metrics are best-effort: a read hiccup here should never keep the
+  // article itself from rendering.
   let metrics: ArticleMetrics | null = null;
   try {
     metrics = await getArticleMetrics(article.id);
-    await recordArticleView(article.id);
   } catch {
     // Ignore; metrics will simply show as unavailable for this request.
   }
@@ -101,14 +107,77 @@ function buildCitation(issue: Issue, article: IssueArticle) {
   };
 }
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const result = await getArticle(params.id, params.articleId);
-  if (!result) return { title: "Article" };
+function buildArticleJsonLd(issue: Issue, article: IssueArticle, canonical: string) {
+  const authorNames =
+    article.authors.length > 0
+      ? article.authors.map((author) => formatAuthorName(author))
+      : ["RGAN XI Editorial Team"];
+
   return {
-    title: result.article.title,
-    description:
-      plainText(result.article.abstract) ||
-      "An article from the Gender Research and Policy Journal.",
+    "@context": "https://schema.org",
+    "@type": "ScholarlyArticle",
+    headline: article.title,
+    abstract: plainText(article.abstract) || undefined,
+    datePublished: issue.publishedAt,
+    url: absoluteUrl(canonical),
+    isPartOf: {
+      "@type": "Periodical",
+      name: "Gender Research and Policy Journal",
+      issn: issue.issn,
+    },
+    author: authorNames.map((name) => ({ "@type": "Person", name })),
+    keywords: article.keywords.length > 0 ? article.keywords.join(", ") : undefined,
+    ...(article.doi ? { sameAs: `https://doi.org/${article.doi}` } : {}),
+    ...(article.pdfUrl ? { encoding: { "@type": "MediaObject", contentUrl: article.pdfUrl } } : {}),
+  };
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  // A data-source hiccup must never break the page head; fall back to a
+  // safe, generic journal title instead.
+  let result: Awaited<ReturnType<typeof getArticle>> = null;
+  try {
+    result = await getArticle(params.id, params.articleId);
+  } catch {
+    result = null;
+  }
+  if (!result) return { title: { absolute: JOURNAL_FALLBACK_TITLE } };
+  const { issue, article } = result;
+  const seoTitle = buildArticleTitle(article.title);
+  const description =
+    plainText(article.abstract) || ARTICLE_FALLBACK_DESCRIPTION;
+  const canonical = `/issue/${issue.id}/${article.id}`;
+  const authorNames =
+    article.authors.length > 0
+      ? article.authors.map((author) => `${author.lastname}, ${author.firstname}`)
+      : ["RGAN XI Editorial Team"];
+
+  return {
+    // Only the <title> tag is optimized. The article H1, citation tags and
+    // JSON-LD headline keep the full, unmodified article title.
+    title: { absolute: seoTitle },
+    description,
+    alternates: { canonical },
+    openGraph: {
+      title: seoTitle,
+      description,
+      url: canonical,
+      type: "article",
+      publishedTime: issue.publishedAt,
+      images: issue.coverImage ? [{ url: issue.coverImage }] : undefined,
+    },
+    twitter: { title: seoTitle, description },
+    // Highwire Press tags: the metadata format Google Scholar reads to
+    // index individual journal articles for citation and discovery.
+    other: {
+      citation_title: article.title,
+      citation_author: authorNames,
+      citation_publication_date: issue.publishedAt,
+      citation_journal_title: "Gender Research and Policy Journal",
+      citation_issn: issue.issn,
+      ...(article.doi ? { citation_doi: article.doi } : {}),
+      ...(article.pdfUrl ? { citation_pdf_url: article.pdfUrl } : {}),
+    },
   };
 }
 
@@ -117,9 +186,20 @@ export default async function ArticleDetailPage({ params }: Props) {
   if (!result) notFound();
   const { issue, article, metrics } = result;
   const citation = buildCitation(issue, article);
+  const articleJsonLd = buildArticleJsonLd(
+    issue,
+    article,
+    `/issue/${issue.id}/${article.id}`,
+  );
 
   return (
     <div className="pt-20">
+      <ArticleViewTracker articleId={article.id} />
+      <script
+        type="application/ld+json"
+        // eslint-disable-next-line react/no-danger
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }}
+      />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <Link
           href={`/issue/${issue.id}`}
@@ -296,7 +376,7 @@ export default async function ArticleDetailPage({ params }: Props) {
                   <div className="flex flex-col items-center text-center px-2">
                     <Copy className="h-4 w-4 text-muted-foreground mb-2" />
                     <span className="font-display font-semibold text-lg text-foreground">
-                      0
+                      {metrics?.citationCount ?? 0}
                     </span>
                     <span className="mt-0.5 text-[11px] text-muted-foreground">
                       Citations

@@ -1,5 +1,13 @@
+import type { Metadata } from "next";
 import { getSummits } from "@/services/summit";
 import { SummitExplorer } from "@/components/summit/summit-explorer";
+
+export const metadata: Metadata = {
+  title: "Regional GAD Summit",
+  description:
+    "The Regional Gender and Development Summit, hosted yearly by a different member institution across Region XI. Explore past themes, hosts, and outcomes.",
+  alternates: { canonical: "/summit" },
+};
 
 export default async function SummitPage() {
   let summits: Awaited<ReturnType<typeof getSummits>> = [];

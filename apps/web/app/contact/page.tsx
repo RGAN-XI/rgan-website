@@ -12,12 +12,13 @@ import {
 import { Button } from "@gad/components/ui/button";
 import { ContactForm } from "@/components/contact/contact-form";
 
-const CONTACT_EMAIL = "rganxi2023@gmail.com";
+const CONTACT_EMAIL = "journal.grp@gmail.com";
 
 export const metadata: Metadata = {
   title: "Contact",
   description:
-    "Get in touch with RGAN XI — the Region XI Gender and Development Advocates Network — for membership, partnerships, and journal inquiries.",
+    "Get in touch with RGAN XI, the Region XI Gender and Development Advocates Network, for membership, partnerships, and journal inquiries.",
+  alternates: { canonical: "/contact" },
 };
 
 const contactCards = [

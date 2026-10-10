@@ -57,6 +57,7 @@ export function Footer() {
               >
                 <Image
                   className="h-full w-full object-contain"
+                  sizes="48px"
                   src={images.ched_logo}
                   alt="CHED Logo"
                 />
@@ -67,8 +68,20 @@ export function Footer() {
               >
                 <Image
                   className="h-full w-full object-contain"
+                  sizes="48px"
                   src={images.ddosc_logo}
                   alt="DDOSC Logo"
+                />
+              </a>
+                <a
+                href="#"
+                className="w-12 h-12 rounded-full bg-background/10 hover:bg-background/20 flex items-center justify-center transition-colors"
+              >
+                <Image
+                  className="h-full w-full object-contain"
+                  sizes="48px"
+                  src={images.dnsc_logo}
+                  alt="DNSC Logo"
                 />
               </a>
               <a
@@ -77,6 +90,7 @@ export function Footer() {
               >
                 <Image
                   className="h-full w-full object-contain"
+                  sizes="48px"
                   src={images.dorsu_logo}
                   alt="DOrSU Logo"
                 />
@@ -87,6 +101,7 @@ export function Footer() {
               >
                 <Image
                   className="h-full w-full object-contain"
+                  sizes="48px"
                   src={images.dssc_logo}
                   alt="DSSC Logo"
                 />
@@ -97,6 +112,7 @@ export function Footer() {
               >
                 <Image
                   className="h-full w-full object-contain"
+                  sizes="48px"
                   src={images.spamast_logo}
                   alt="SPAMAST Logo"
                 />
@@ -107,6 +123,7 @@ export function Footer() {
               >
                 <Image
                   className="h-full w-full object-contain"
+                  sizes="48px"
                   src={images.usep_logo}
                   alt="USeP Logo"
                 />
@@ -155,17 +172,17 @@ export function Footer() {
                   Philippines
                 </span>
               </li>
-              <li className="flex items-center gap-2">
+              {/* <li className="flex items-center gap-2">
                 <Phone className="h-4 w-4 shrink-0 text-background/40" />
                 <span>+63 (82) 123-4567</span>
-              </li>
+              </li> */}
               <li className="flex items-center gap-2">
                 <Mail className="h-4 w-4 shrink-0 text-background/40" />
                 <a
-                  href="mailto:rganxi2023@gmail.com"
+                  href="mailto:journal.grp@gmail.com"
                   className="hover:text-background transition-colors"
                 >
-                  rganxi2023@gmail.com
+                  journal.grp@gmail.com
                 </a>
               </li>
             </ul>

@@ -17,9 +17,10 @@ import {
 import { JournalTabs } from "@/components/journal/journal-tabs";
 
 export const metadata: Metadata = {
-  title: "Gender Research & Policy Journal",
+  title: "Gender Research and Policy Journal",
   description:
-    "The Gender Research and Policy Journal (GRPJ) — a peer-reviewed, open-access journal published by RGAN XI. ISSN 3082-5431 (Print). Published biannually.",
+    "The Gender Research and Policy Journal (GRPJ) is a peer-reviewed, open-access journal published by RGAN XI. ISSN 3082-5431 (Print). Published biannually.",
+  alternates: { canonical: "/journal" },
 };
 
 // Core bibliographic facts — kept in one place so the record stays consistent
@@ -36,7 +37,7 @@ const journalFacts = [
   { label: "Peer Review", value: "Double-blind" },
   { label: "Language", value: "English" },
   { label: "ISSN (Print)", value: "3082-5431" },
-  { label: "ISSN (Online)", value: "Pending" },
+  { label: "ISSN (Online)", value: "3155-7201" },
   { label: "Article Processing Charges", value: "None" },
   { label: "Submission Fee", value: "None" },
   { label: "Copyright", value: "Retained by the authors" },
@@ -119,6 +120,7 @@ export default function JournalPage() {
             <div className="flex flex-wrap gap-2 mt-6">
               {[
                 "ISSN (Print) 3082-5431",
+                "ISSN (Online) 3155-7201",
                 "Open Access",
                 "Double-Blind Peer Review",
                 "Published Biannually",

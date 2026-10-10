@@ -1,0 +1,542 @@
+From 3adc1275059148a20ce8a204b6dbf6fe46fb3e2d Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Wed, 30 Sep 2026 00:50:29 +0000
+Subject: [PATCH] =?UTF-8?q?=E2=9A=A1=EF=B8=8F=20perf:=20improve=20Real=20E?=
+ =?UTF-8?q?xperience=20Score=20on=20public=20pages?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- Add cookie-free Supabase client (@gad/supabase/public) so public pages can be statically rendered with ISR (60s) instead of SSR on every request
+- Move article view counting to a client-side tracker so article pages can be cached
+- Replace render-blocking Google Fonts @import with next/font (same fonts and CSS variables)
+- Fill/sizes on editorial board avatars, sizes on footer and navbar logos
+- Enable avif/webp formats and a 30 day image cache TTL
+- Use a passive scroll listener in the navbar
+- Wrap issue fetchers in React cache() to dedupe per-request calls
+---
+ apps/web/app/globals.css                      |  6 +--
+ .../web/app/issue/[id]/[articleId]/actions.ts | 21 +++++++-
+ apps/web/app/issue/[id]/[articleId]/page.tsx  | 15 +++---
+ apps/web/app/journal/editorial-board/page.tsx |  6 ++-
+ .../editorial-board/reviewers/page.tsx        |  7 ++-
+ apps/web/app/layout.tsx                       | 34 ++++++++++++-
+ .../journal/article-view-tracker.tsx          | 21 ++++++++
+ apps/web/components/layout/footer.tsx         |  7 +++
+ apps/web/components/layout/navbar.tsx         |  4 +-
+ apps/web/next.config.js                       |  2 +
+ apps/web/services/announcement.ts             |  2 +-
+ apps/web/services/article-metrics.ts          |  2 +-
+ apps/web/services/expert.ts                   |  2 +-
+ apps/web/services/issue.ts                    | 13 ++---
+ apps/web/services/officer.ts                  |  2 +-
+ apps/web/services/reviewer.ts                 |  2 +-
+ apps/web/services/summit.ts                   |  2 +-
+ packages/supabase/package.json                |  1 +
+ packages/supabase/public.ts                   | 48 +++++++++++++++++++
+ 19 files changed, 164 insertions(+), 33 deletions(-)
+ create mode 100644 apps/web/components/journal/article-view-tracker.tsx
+ create mode 100644 packages/supabase/public.ts
+
+diff --git a/apps/web/app/globals.css b/apps/web/app/globals.css
+index bbc3282..b77cccf 100644
+--- a/apps/web/app/globals.css
++++ b/apps/web/app/globals.css
+@@ -1,14 +1,10 @@
+-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,900;1,400;1,700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=DM+Mono:wght@400;500&display=swap');
+-
+ @tailwind base;
+ @tailwind components;
+ @tailwind utilities;
+ 
+ @layer base {
+   :root {
+-    --font-display: 'Playfair Display', serif;
+-    --font-body: 'DM Sans', sans-serif;
+-    --font-mono: 'DM Mono', monospace;
++    /* --font-display, --font-body and --font-mono are provided by next/font in app/layout.tsx */
+ 
+     --background: 0 0% 98%;
+     --foreground: 270 20% 10%;
+diff --git a/apps/web/app/issue/[id]/[articleId]/actions.ts b/apps/web/app/issue/[id]/[articleId]/actions.ts
+index 3bbd116..a48ea94 100644
+--- a/apps/web/app/issue/[id]/[articleId]/actions.ts
++++ b/apps/web/app/issue/[id]/[articleId]/actions.ts
+@@ -1,6 +1,9 @@
+ "use server";
+ 
+-import { recordArticleDownload } from "@/services/article-metrics";
++import {
++  recordArticleDownload,
++  recordArticleView,
++} from "@/services/article-metrics";
+ 
+ /**
+  * Records a download event for an article. Called from the client-side
+@@ -16,3 +19,19 @@ export async function recordArticleDownloadAction(
+     // Best-effort only; ignore failures.
+   }
+ }
++
++/**
++ * Records a view event for an article. Called once from the client after the
++ * page has loaded, so the article page itself can be statically rendered and
++ * cached instead of writing to the database on every render. Errors are
++ * swallowed for the same reason as the download action.
++ */
++export async function recordArticleViewAction(
++  articleId: string,
++): Promise<void> {
++  try {
++    await recordArticleView(articleId);
++  } catch {
++    // Best-effort only; ignore failures.
++  }
++}
+diff --git a/apps/web/app/issue/[id]/[articleId]/page.tsx b/apps/web/app/issue/[id]/[articleId]/page.tsx
+index 20574b8..56cdef7 100644
+--- a/apps/web/app/issue/[id]/[articleId]/page.tsx
++++ b/apps/web/app/issue/[id]/[articleId]/page.tsx
+@@ -4,7 +4,7 @@ import Link from "next/link";
+ import Image from "next/image";
+ import { notFound } from "next/navigation";
+ import { getIssueById } from "@/services/issue";
+-import { getArticleMetrics, recordArticleView } from "@/services/article-metrics";
++import { getArticleMetrics } from "@/services/article-metrics";
+ import { type Issue, IssueArticle, ArticleAuthor } from "@gad/types/issue";
+ import type { ArticleMetrics } from "@gad/types/article-metrics";
+ import { IssueCover } from "@/components/journal/issue-cover";
+@@ -12,6 +12,7 @@ import { IssueQuickLinks } from "@/components/journal/issue-quick-links";
+ import { CiteButton } from "@/components/journal/cite-button";
+ import { AltmetricBadge } from "@/components/journal/altmetric-badge";
+ import { PdfDownloadButton } from "@/components/journal/pdf-download-button";
++import { ArticleViewTracker } from "@/components/journal/article-view-tracker";
+ import { Badge } from "@gad/components/ui/badge";
+ import { formatDateShort } from "@/lib/utils";
+ import { formatAuthorName } from "@/lib/authors";
+@@ -46,21 +47,20 @@ function plainText(html?: string) {
+     : "";
+ }
+ 
+-// Wrapped in React's cache() so generateMetadata and the page body, which
+-// both call this per request, share one execution instead of fetching the
+-// article (and recording the view) twice.
++// Wrapped in React's cache() so generateMetadata and the page body share one
++// execution instead of fetching the article twice. Views are no longer
++// recorded here; see <ArticleViewTracker />.
+ const getArticle = cache(async (issueId: string, articleId: string) => {
+   const result = await getIssueById(issueId);
+   if (!result) return null;
+   const article = result.articles.find((a) => a.id === articleId);
+   if (!article) return null;
+ 
+-  // Metrics are best-effort: a read/write hiccup here should never keep
+-  // the article itself from rendering.
++  // Metrics are best-effort: a read hiccup here should never keep the
++  // article itself from rendering.
+   let metrics: ArticleMetrics | null = null;
+   try {
+     metrics = await getArticleMetrics(article.id);
+-    await recordArticleView(article.id);
+   } catch {
+     // Ignore; metrics will simply show as unavailable for this request.
+   }
+@@ -194,6 +194,7 @@ export default async function ArticleDetailPage({ params }: Props) {
+ 
+   return (
+     <div className="pt-20">
++      <ArticleViewTracker articleId={article.id} />
+       <script
+         type="application/ld+json"
+         // eslint-disable-next-line react/no-danger
+diff --git a/apps/web/app/journal/editorial-board/page.tsx b/apps/web/app/journal/editorial-board/page.tsx
+index f29a669..deea384 100644
+--- a/apps/web/app/journal/editorial-board/page.tsx
++++ b/apps/web/app/journal/editorial-board/page.tsx
+@@ -255,14 +255,16 @@ function MemberGrid({ members }: { members: Member[] }) {
+           className="group bg-white rounded-2xl border border-border p-6 hover:shadow-md transition-all hover:-translate-y-0.5 duration-200"
+         >
+           <div
+-            className={`w-12 h-12 rounded-xl bg-gradient-to-br ${gradients[i % gradients.length]} flex items-center justify-center text-white font-display font-bold mb-4 group-hover:scale-105 transition-transform`}
++            className={`relative w-14 h-14 overflow-hidden rounded-2xl bg-gradient-to-br ${gradients[i % gradients.length]} flex items-center justify-center text-white font-display font-bold mb-4 group-hover:scale-105 transition-transform`}
+           >
+             {initials(member.name)}
+             {member.profile && (
+               <Image
+                 src={member.profile}
+                 alt={member.name}
+-                className="w-14 h-14 rounded-2xl object-cover absolute "
++                fill
++                sizes="56px"
++                className="object-cover"
+               />
+             )}
+           </div>
+diff --git a/apps/web/app/journal/editorial-board/reviewers/page.tsx b/apps/web/app/journal/editorial-board/reviewers/page.tsx
+index 28c74fd..83c52e8 100644
+--- a/apps/web/app/journal/editorial-board/reviewers/page.tsx
++++ b/apps/web/app/journal/editorial-board/reviewers/page.tsx
+@@ -13,10 +13,9 @@ export const metadata: Metadata = {
+   alternates: { canonical: "/journal/editorial-board/reviewers" },
+ };
+ 
+-// Always fetch the latest reviewers on each request instead of serving a
+-// statically-generated (and possibly stale/empty) list from build time.
+-export const dynamic = "force-dynamic";
+-export const revalidate = 0;
++// Statically rendered and refreshed in the background every minute, so new
++// reviewers appear shortly after being added without a request-time fetch.
++export const revalidate = 60;
+ 
+ const gradients = [
+   "from-purple-500 to-pink-500",
+diff --git a/apps/web/app/layout.tsx b/apps/web/app/layout.tsx
+index 6b280c8..c482bfc 100644
+--- a/apps/web/app/layout.tsx
++++ b/apps/web/app/layout.tsx
+@@ -1,4 +1,5 @@
+ import type { Metadata } from 'next'
++import { DM_Mono, DM_Sans, Playfair_Display } from 'next/font/google'
+ import './globals.css'
+ import { Navbar } from '@/components/layout/navbar'
+ import { Footer } from '@/components/layout/footer'
+@@ -9,6 +10,33 @@ import { SpeedInsights } from '@vercel/speed-insights/next'
+ import { HOME_TITLE, SITE_NAME, SITE_URL } from '@/lib/seo'
+ import ogImage from '@gad/assets/images/RGAN XI logo landscape.png'
+ 
++// Self-hosted at build time by next/font. Replaces the render-blocking Google
++// Fonts @import that used to sit at the top of globals.css. The CSS variable
++// names match the ones tailwind.config.ts already reads.
++const fontDisplay = Playfair_Display({
++  subsets: ['latin'],
++  style: ['normal', 'italic'],
++  display: 'swap',
++  variable: '--font-display',
++})
++const fontBody = DM_Sans({
++  subsets: ['latin'],
++  style: ['normal', 'italic'],
++  display: 'swap',
++  variable: '--font-body',
++})
++const fontMono = DM_Mono({
++  subsets: ['latin'],
++  weight: ['400', '500'],
++  display: 'swap',
++  variable: '--font-mono',
++  preload: false,
++})
++
++// Public pages are statically rendered and refreshed in the background at
++// most once a minute (ISR) instead of hitting Supabase on every request.
++export const revalidate = 60
++
+ const title = {
+   default: HOME_TITLE,
+   template: '%s | RGAN XI',
+@@ -65,7 +93,11 @@ export default function RootLayout({
+   children: React.ReactNode
+ }) {
+   return (
+-    <html lang="en" suppressHydrationWarning>
++    <html
++      lang="en"
++      className={`${fontDisplay.variable} ${fontBody.variable} ${fontMono.variable}`}
++      suppressHydrationWarning
++    >
+       <body>
+         <script
+           type="application/ld+json"
+diff --git a/apps/web/components/journal/article-view-tracker.tsx b/apps/web/components/journal/article-view-tracker.tsx
+new file mode 100644
+index 0000000..47a35cb
+--- /dev/null
++++ b/apps/web/components/journal/article-view-tracker.tsx
+@@ -0,0 +1,21 @@
++"use client";
++
++import { useEffect } from "react";
++import { recordArticleViewAction } from "@/app/issue/[id]/[articleId]/actions";
++
++interface ArticleViewTrackerProps {
++  articleId: string;
++}
++
++/**
++ * Fires a single view event after the article page mounts. Keeping this out
++ * of the server render lets the page be cached (ISR) while still counting
++ * real visitors. Renders nothing.
++ */
++export function ArticleViewTracker({ articleId }: ArticleViewTrackerProps) {
++  useEffect(() => {
++    void recordArticleViewAction(articleId);
++  }, [articleId]);
++
++  return null;
++}
+diff --git a/apps/web/components/layout/footer.tsx b/apps/web/components/layout/footer.tsx
+index 199e091..3b94e71 100644
+--- a/apps/web/components/layout/footer.tsx
++++ b/apps/web/components/layout/footer.tsx
+@@ -57,6 +57,7 @@ export function Footer() {
+               >
+                 <Image
+                   className="h-full w-full object-contain"
++                  sizes="48px"
+                   src={images.ched_logo}
+                   alt="CHED Logo"
+                 />
+@@ -67,6 +68,7 @@ export function Footer() {
+               >
+                 <Image
+                   className="h-full w-full object-contain"
++                  sizes="48px"
+                   src={images.ddosc_logo}
+                   alt="DDOSC Logo"
+                 />
+@@ -77,6 +79,7 @@ export function Footer() {
+               >
+                 <Image
+                   className="h-full w-full object-contain"
++                  sizes="48px"
+                   src={images.dnsc_logo}
+                   alt="DNSC Logo"
+                 />
+@@ -87,6 +90,7 @@ export function Footer() {
+               >
+                 <Image
+                   className="h-full w-full object-contain"
++                  sizes="48px"
+                   src={images.dorsu_logo}
+                   alt="DOrSU Logo"
+                 />
+@@ -97,6 +101,7 @@ export function Footer() {
+               >
+                 <Image
+                   className="h-full w-full object-contain"
++                  sizes="48px"
+                   src={images.dssc_logo}
+                   alt="DSSC Logo"
+                 />
+@@ -107,6 +112,7 @@ export function Footer() {
+               >
+                 <Image
+                   className="h-full w-full object-contain"
++                  sizes="48px"
+                   src={images.spamast_logo}
+                   alt="SPAMAST Logo"
+                 />
+@@ -117,6 +123,7 @@ export function Footer() {
+               >
+                 <Image
+                   className="h-full w-full object-contain"
++                  sizes="48px"
+                   src={images.usep_logo}
+                   alt="USeP Logo"
+                 />
+diff --git a/apps/web/components/layout/navbar.tsx b/apps/web/components/layout/navbar.tsx
+index 09065dd..369042a 100644
+--- a/apps/web/components/layout/navbar.tsx
++++ b/apps/web/components/layout/navbar.tsx
+@@ -61,7 +61,8 @@ export function Navbar() {
+ 
+   useEffect(() => {
+     const handleScroll = () => setScrolled(window.scrollY > 20);
+-    window.addEventListener("scroll", handleScroll);
++    handleScroll();
++    window.addEventListener("scroll", handleScroll, { passive: true });
+     return () => window.removeEventListener("scroll", handleScroll);
+   }, []);
+ 
+@@ -83,6 +84,7 @@ export function Navbar() {
+               <Image
+                 src={logo}
+                 className="w-full h-full object-contain"
++                sizes="40px"
+                 alt="RGAN XI Logo"
+               />
+             </div>
+diff --git a/apps/web/next.config.js b/apps/web/next.config.js
+index 2079352..2e39f74 100644
+--- a/apps/web/next.config.js
++++ b/apps/web/next.config.js
+@@ -2,6 +2,8 @@
+ const nextConfig = {
+   transpilePackages: ['@gad/assets', '@gad/supabase', '@gad/ui', '@gad/types'],
+   images: {
++    formats: ['image/avif', 'image/webp'],
++    minimumCacheTTL: 60 * 60 * 24 * 30,
+     remotePatterns: [
+       {
+         protocol: 'https',
+diff --git a/apps/web/services/announcement.ts b/apps/web/services/announcement.ts
+index c9bdfb4..5451216 100644
+--- a/apps/web/services/announcement.ts
++++ b/apps/web/services/announcement.ts
+@@ -1,5 +1,5 @@
+ import type { Announcement } from "@gad/types/announcement";
+-import { createClient } from "@gad/supabase/server";
++import { createClient } from "@gad/supabase/public";
+ import type { Database } from "@gad/supabase/types";
+ 
+ export async function getAnnouncements(): Promise<Announcement[]> {
+diff --git a/apps/web/services/article-metrics.ts b/apps/web/services/article-metrics.ts
+index 02b9d0d..529c713 100644
+--- a/apps/web/services/article-metrics.ts
++++ b/apps/web/services/article-metrics.ts
+@@ -1,4 +1,4 @@
+-import { createClient } from "@gad/supabase/server";
++import { createClient } from "@gad/supabase/public";
+ import type { Database } from "@gad/supabase/types";
+ import type { ArticleMetrics } from "@gad/types/article-metrics";
+ 
+diff --git a/apps/web/services/expert.ts b/apps/web/services/expert.ts
+index 52a5b78..db94c95 100644
+--- a/apps/web/services/expert.ts
++++ b/apps/web/services/expert.ts
+@@ -1,4 +1,4 @@
+-import { createClient } from "@gad/supabase/server";
++import { createClient } from "@gad/supabase/public";
+ import type { Database } from "@gad/supabase/types";
+ import type { Expert } from "@gad/types";
+ 
+diff --git a/apps/web/services/issue.ts b/apps/web/services/issue.ts
+index e8f80a5..7bdaeb4 100644
+--- a/apps/web/services/issue.ts
++++ b/apps/web/services/issue.ts
+@@ -1,4 +1,5 @@
+-import { createClient } from "@gad/supabase/server";
++import { cache } from "react";
++import { createClient } from "@gad/supabase/public";
+ import type { Database } from "@gad/supabase/types";
+ import type { Issue, IssueArticle, ArticleAuthor } from "@gad/types/issue";
+ 
+@@ -11,7 +12,7 @@ function formatIssueDate(value: string): string {
+   }).format(new Date(`${value}T00:00:00Z`));
+ }
+ 
+-export async function getIssues(): Promise<Issue[]> {
++export const getIssues = cache(async (): Promise<Issue[]> => {
+   const { data, error } = await createClient()
+     .from("archive")
+     .select("*")
+@@ -33,11 +34,11 @@ export async function getIssues(): Promise<Issue[]> {
+     isCurrent: item.is_current,
+     date: formatIssueDate(item.published_at),
+   }));
+-}
++});
+ 
+-export async function getIssueById(
++export const getIssueById = cache(async (
+   id: string,
+-): Promise<{ issue: Issue; articles: IssueArticle[] } | null> {
++): Promise<{ issue: Issue; articles: IssueArticle[] } | null> => {
+   const { data, error } = await createClient()
+     .from("archive")
+     .select("*, articles(*, authors(*))")
+@@ -99,4 +100,4 @@ export async function getIssueById(
+   });
+ 
+   return { issue, articles };
+-}
++});
+diff --git a/apps/web/services/officer.ts b/apps/web/services/officer.ts
+index 0ff9406..f12b584 100644
+--- a/apps/web/services/officer.ts
++++ b/apps/web/services/officer.ts
+@@ -1,4 +1,4 @@
+-import { createClient } from "@gad/supabase/server";
++import { createClient } from "@gad/supabase/public";
+ import type { Database } from "@gad/supabase/types";
+ import { compareOfficersByPosition, type Officer } from "@gad/types";
+ 
+diff --git a/apps/web/services/reviewer.ts b/apps/web/services/reviewer.ts
+index 178204a..64a2d29 100644
+--- a/apps/web/services/reviewer.ts
++++ b/apps/web/services/reviewer.ts
+@@ -1,4 +1,4 @@
+-import { createClient } from "@gad/supabase/server";
++import { createClient } from "@gad/supabase/public";
+ import type { Database } from "@gad/supabase/types";
+ import type { Reviewer } from "@gad/types";
+ 
+diff --git a/apps/web/services/summit.ts b/apps/web/services/summit.ts
+index c42808e..898c57f 100644
+--- a/apps/web/services/summit.ts
++++ b/apps/web/services/summit.ts
+@@ -1,4 +1,4 @@
+-import { createClient } from "@gad/supabase/server";
++import { createClient } from "@gad/supabase/public";
+ import type { Database } from "@gad/supabase/types";
+ import type { Summit } from "@gad/types/";
+ 
+diff --git a/packages/supabase/package.json b/packages/supabase/package.json
+index f600168..eb59ee3 100644
+--- a/packages/supabase/package.json
++++ b/packages/supabase/package.json
+@@ -7,6 +7,7 @@
+     ".": "./client.ts",
+     "./client": "./client.ts",
+     "./server": "./server.ts",
++    "./public": "./public.ts",
+     "./types": "./types.ts"
+   },
+   "dependencies": {
+diff --git a/packages/supabase/public.ts b/packages/supabase/public.ts
+new file mode 100644
+index 0000000..3f63db0
+--- /dev/null
++++ b/packages/supabase/public.ts
+@@ -0,0 +1,48 @@
++import { createClient as createSupabaseClient } from "@supabase/supabase-js";
++import type { Database } from "./types";
++
++/**
++ * Cookie-free Supabase client for public, read-mostly data on the public
++ * website.
++ *
++ * `@gad/supabase/server` reads `cookies()`, which opts every page that calls
++ * it into dynamic rendering (no static HTML, no ISR, no CDN caching). The
++ * public site never needs an auth session, so this client skips cookies
++ * entirely and lets pages be statically rendered and revalidated in the
++ * background.
++ *
++ * GET requests are cached by the Next.js data cache and revalidated every
++ * `REVALIDATE_SECONDS`. Anything else (RPC calls that write, such as view and
++ * download counters) is never cached.
++ */
++export const REVALIDATE_SECONDS = 60;
++
++export function createClient() {
++  return createSupabaseClient<Database>(
++    process.env.NEXT_PUBLIC_SUPABASE_URL!,
++    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
++      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
++    {
++      auth: {
++        persistSession: false,
++        autoRefreshToken: false,
++        detectSessionInUrl: false,
++      },
++      global: {
++        fetch: (input, init) => {
++          const method = (init?.method ?? "GET").toUpperCase();
++          const isRead = method === "GET" || method === "HEAD";
++
++          return fetch(
++            input,
++            isRead
++              ? { ...init, next: { revalidate: REVALIDATE_SECONDS } }
++              : { ...init, cache: "no-store" },
++          );
++        },
++      },
++    },
++  );
++}
++
++export type { Database };
+-- 
+2.43.0
+
