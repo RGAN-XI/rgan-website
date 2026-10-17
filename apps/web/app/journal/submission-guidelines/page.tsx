@@ -140,7 +140,7 @@ export default function SubmissionGuidelinesPage() {
           <PolicySection icon={AlignLeft} title="Language">
             <p>
               Manuscripts must be written in clear, concise, and
-              grammatically correct Standard American English. Authors whose
+              grammatically correct British English. Authors whose
               first language is not English are strongly encouraged to
               obtain professional language editing before submission.
               Language quality alone does not determine acceptance; however,
