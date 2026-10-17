@@ -3,6 +3,8 @@ import React, { useState } from "react";
 import { createClient } from "@gad/supabase/client";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, LogIn } from "lucide-react";
+import logo from "@gad/assets/images/RGAN XI white.png";
+import Image from "next/image";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -36,11 +38,16 @@ export default function LoginPage() {
       {/* Left panel */}
       <div className="hidden lg:flex lg:w-1/2 gad-gradient flex-col justify-between p-12 text-white">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-white/20 flex items-center justify-center font-display font-bold text-sm">
-            GAD
+          <div className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-display font-bold text-sm">
+              <Image
+                src={logo}
+                className="w-full h-full object-contain"
+                sizes="40px"
+                alt="RGAN XI Logo"
+              />
           </div>
           <div>
-            <p className="font-display font-bold">GAD Research Center</p>
+            <p className="font-display font-bold">RGAN XI</p>
             <p className="text-xs text-white/70">Content Management</p>
           </div>
         </div>
@@ -56,7 +63,7 @@ export default function LoginPage() {
         </div>
 
         <div className="grid grid-cols-3 gap-4">
-          {[
+          {/* {[
             { value: "200+", label: "Articles" },
             { value: "50+", label: "Researchers" },
             { value: "15+", label: "Years" },
@@ -65,7 +72,7 @@ export default function LoginPage() {
               <p className="font-display font-bold text-3xl">{s.value}</p>
               <p className="text-sm text-white/70">{s.label}</p>
             </div>
-          ))}
+          ))} */}
         </div>
       </div>
 
