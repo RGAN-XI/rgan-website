@@ -251,11 +251,16 @@ export default async function ArticleDetailPage({ params }: Props) {
                           <p className="font-medium text-foreground/90">
                             {formatAuthorName(author)}
                           </p>
-                          {author.school && (
-                            <p className="text-muted-foreground text-xs">
-                              {author.school}
+                          {author.affiliations.map((affiliation, affIdx) => (
+                            <p
+                              key={affIdx}
+                              className="text-muted-foreground text-xs"
+                            >
+                              {[affiliation.department, affiliation.school]
+                                .filter(Boolean)
+                                .join(", ")}
                             </p>
-                          )}
+                          ))}
                           {author.orcid_no && (
                             <a
                               href={`https://orcid.org/${author.orcid_no}`}

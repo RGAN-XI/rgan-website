@@ -22,26 +22,83 @@ type ServiceResult<T> =
       data?: never;
     };
 
-function toArticleAuthor(row: {
+// Selects an author together with their affiliations. Affiliations are
+// ordered by "position" in toArticleAuthor so the primary one comes first.
+const AUTHOR_SELECT =
+  "firstname, middlename, lastname, orcid_no, author_affiliations(school, department, city, country, position)";
+
+type AuthorRow = {
   firstname: string;
   middlename: string | null;
   lastname: string;
-  department: string | null;
-  school: string;
-  city: string | null;
-  country: string | null;
   orcid_no: string | null;
-}): ArticleAuthor {
+  author_affiliations?: Array<{
+    school: string;
+    department: string | null;
+    city: string | null;
+    country: string | null;
+    position: number;
+  }> | null;
+};
+
+function toArticleAuthor(row: AuthorRow): ArticleAuthor {
+  const affiliations = [...(row.author_affiliations ?? [])]
+    .sort((a, b) => a.position - b.position)
+    .map((affiliation) => ({
+      school: affiliation.school,
+      department: affiliation.department,
+      city: affiliation.city,
+      country: affiliation.country,
+    }));
+
   return {
     firstname: row.firstname,
     middlename: row.middlename,
     lastname: row.lastname,
-    school: row.school,
-    department: row.department,
-    city: row.city,
-    country: row.country,
+    affiliations,
     orcid_no: row.orcid_no,
   };
+}
+
+/**
+ * Inserts the authors of an article and then each author's affiliations.
+ * Author ids are generated here so affiliations can reference them without
+ * relying on the order rows come back from the database.
+ */
+async function insertAuthors(
+  supabase: ReturnType<typeof createClient>,
+  articleId: string,
+  authors: AuthorFormInput[],
+): Promise<{ error: string | null }> {
+  const rows = authors.map((author) => ({
+    id: crypto.randomUUID(),
+    article_id: articleId,
+    firstname: author.firstname,
+    middlename: author.middlename || null,
+    lastname: author.lastname,
+    orcid_no: author.orcid || null,
+  }));
+
+  const { error: authorsError } = await supabase.from("authors").insert(rows);
+  if (authorsError) return { error: authorsError.message };
+
+  const affiliationRows = authors.flatMap((author, authorIndex) =>
+    author.affiliations.map((affiliation, position) => ({
+      author_id: rows[authorIndex].id,
+      school: affiliation.school,
+      department: affiliation.department || null,
+      city: affiliation.city || null,
+      country: affiliation.country || null,
+      position,
+    })),
+  );
+
+  const { error: affiliationsError } = await supabase
+    .from("author_affiliations")
+    .insert(affiliationRows);
+  if (affiliationsError) return { error: affiliationsError.message };
+
+  return { error: null };
 }
 
 function toIssueArticle(
@@ -109,33 +166,32 @@ export async function createArticle(
     };
   }
 
-  const { data: insertedAuthors, error: authorsError } = await supabase
-    .from("authors")
-    .insert(
-      authors.map((author: AuthorFormInput) => ({
-        article_id: article.id,
-        firstname: author.firstname,
-        middlename: author.middlename || null,
-        lastname: author.lastname,
-        department: author.department || null,
-        school: author.school,
-        city: author.city || null,
-        country: author.country || null,
-        orcid_no: author.orcid || null,
-      })),
-    )
-    .select(
-      "firstname, middlename, lastname, department, school, city, country, orcid_no",
-    );
+  const { error: authorsError } = await insertAuthors(
+    supabase,
+    article.id,
+    authors,
+  );
 
   if (authorsError) {
     await supabase.from("articles").delete().eq("id", article.id);
-    return { success: false, error: authorsError.message };
+    return { success: false, error: authorsError };
+  }
+
+  const { data: insertedAuthors, error: authorsFetchError } = await supabase
+    .from("authors")
+    .select(AUTHOR_SELECT)
+    .eq("article_id", article.id);
+
+  if (authorsFetchError) {
+    return { success: false, error: authorsFetchError.message };
   }
 
   return {
     success: true,
-    data: toIssueArticle(article, (insertedAuthors ?? []).map(toArticleAuthor)),
+    data: toIssueArticle(
+      article,
+      ((insertedAuthors ?? []) as AuthorRow[]).map(toArticleAuthor),
+    ),
   };
 }
 
@@ -193,30 +249,17 @@ export async function updateArticle(
       return { success: false, error: deleteError.message };
     }
 
-    const { error: authorsError } = await supabase.from("authors").insert(
-      authors.map((author: AuthorFormInput) => ({
-        article_id: id,
-        firstname: author.firstname,
-        middlename: author.middlename || null,
-        lastname: author.lastname,
-        department: author.department || null,
-        school: author.school,
-        city: author.city || null,
-        country: author.country || null,
-        orcid_no: author.orcid || null,
-      })),
-    );
+    // Deleting an author cascades to its affiliations.
+    const { error: authorsError } = await insertAuthors(supabase, id, authors);
 
     if (authorsError) {
-      return { success: false, error: authorsError.message };
+      return { success: false, error: authorsError };
     }
   }
 
   const { data: currentAuthors, error: authorsFetchError } = await supabase
     .from("authors")
-    .select(
-      "firstname, middlename, lastname, department, school, city, country, orcid_no",
-    )
+    .select(AUTHOR_SELECT)
     .eq("article_id", id);
 
   if (authorsFetchError) {
@@ -225,7 +268,7 @@ export async function updateArticle(
 
   return {
     success: true,
-    data: toIssueArticle(article, (currentAuthors ?? []).map(toArticleAuthor)),
+    data: toIssueArticle(article, ((currentAuthors ?? []) as AuthorRow[]).map(toArticleAuthor)),
   };
 }
 
@@ -325,9 +368,7 @@ export async function getArticleById(
 
   const { data: authors, error: authorsError } = await supabase
     .from("authors")
-    .select(
-      "firstname, middlename, lastname, department, school, city, country, orcid_no",
-    )
+    .select(AUTHOR_SELECT)
     .eq("article_id", id);
 
   if (authorsError) {
@@ -336,7 +377,7 @@ export async function getArticleById(
 
   return {
     success: true,
-    data: toIssueArticle(article, (authors ?? []).map(toArticleAuthor)),
+    data: toIssueArticle(article, ((authors ?? []) as AuthorRow[]).map(toArticleAuthor)),
   };
 }
 
@@ -358,16 +399,14 @@ export async function listArticlesByIssue(
   for (const article of articles ?? []) {
     const { data: authors, error: authorsError } = await supabase
       .from("authors")
-      .select(
-        "firstname, middlename, lastname, department, school, city, country, orcid_no",
-      )
+      .select(AUTHOR_SELECT)
       .eq("article_id", article.id);
 
     if (authorsError) {
       return { success: false, error: authorsError.message };
     }
 
-    results.push(toIssueArticle(article, (authors ?? []).map(toArticleAuthor)));
+    results.push(toIssueArticle(article, ((authors ?? []) as AuthorRow[]).map(toArticleAuthor)));
   }
 
   return { success: true, data: results };

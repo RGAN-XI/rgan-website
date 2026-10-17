@@ -64,17 +64,13 @@ export interface Database {
           firstname: string;
           middlename: string | null;
           lastname: string;
-          department: string | null;
-          school: string;
-          city: string | null;
-          country: string | null;
           orcid_no: string | null;
           article_id: string;
         };
         Insert: Omit<
           Database["public"]["Tables"]["authors"]["Row"],
           "id" | "created_at"
-        >;
+        > & { id?: string };
         Update: Partial<Database["public"]["Tables"]["authors"]["Insert"]>;
         Relationships: [
           {
@@ -82,6 +78,34 @@ export interface Database {
             columns: ["article_id"];
             isOneToOne: false;
             referencedRelation: "articles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      author_affiliations: {
+        Row: {
+          id: string;
+          created_at: string;
+          author_id: string;
+          school: string;
+          department: string | null;
+          city: string | null;
+          country: string | null;
+          position: number;
+        };
+        Insert: Omit<
+          Database["public"]["Tables"]["author_affiliations"]["Row"],
+          "id" | "created_at" | "position"
+        > & { position?: number };
+        Update: Partial<
+          Database["public"]["Tables"]["author_affiliations"]["Insert"]
+        >;
+        Relationships: [
+          {
+            foreignKeyName: "author_affiliations_author_id_fkey";
+            columns: ["author_id"];
+            isOneToOne: false;
+            referencedRelation: "authors";
             referencedColumns: ["id"];
           },
         ];
