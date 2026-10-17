@@ -1,7 +1,9 @@
 import React from "react";
 import type { Metadata } from "next";
 import {
+  Download,
   FileText,
+  FileType2,
   Ruler,
   ListOrdered,
   Contact,
@@ -26,6 +28,9 @@ export const metadata: Metadata = {
     "Manuscript types, formatting, and submission requirements for the Gender Research and Policy Journal (GRPJ).",
   alternates: { canonical: "/journal/submission-guidelines" },
 };
+
+const TEMPLATE_URL =
+  "https://pwravqzegskptmxzwjtx.supabase.co/storage/v1/object/public/file/public_downloadable/GRPJ-Template-v.2026.docx";
 
 const manuscriptTypes = [
   { type: "Original Research Article", length: "5,000–8,000 words" },
@@ -135,7 +140,7 @@ export default function SubmissionGuidelinesPage() {
           <PolicySection icon={AlignLeft} title="Language">
             <p>
               Manuscripts must be written in clear, concise, and
-              grammatically correct Standard American English. Authors whose
+              grammatically correct British English. Authors whose
               first language is not English are strongly encouraged to
               obtain professional language editing before submission.
               Language quality alone does not determine acceptance; however,
@@ -161,6 +166,31 @@ export default function SubmissionGuidelinesPage() {
                   ))}
                 </tbody>
               </table>
+            </div>
+
+            <div className="not-prose mt-6 flex flex-col sm:flex-row sm:items-center gap-4 rounded-2xl border border-border bg-muted/30 p-5">
+              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                <FileType2 className="h-6 w-6 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-display text-base font-bold text-foreground">
+                  GRPJ Manuscript Template
+                </div>
+                <div className="text-sm text-muted-foreground mt-1">
+                  Download the official template for preparing your GRPJ
+                  submission.
+                </div>
+              </div>
+              <a
+                href={TEMPLATE_URL}
+                download="GRPJ-Template-v.2026.docx"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-2 gad-gradient text-white px-6 py-3 rounded-md text-sm font-medium shadow-md hover:opacity-90 transition-opacity shrink-0"
+              >
+                <Download className="h-4 w-4" />
+                Download Template
+              </a>
             </div>
           </PolicySection>
 
