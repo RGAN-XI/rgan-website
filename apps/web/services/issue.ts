@@ -41,7 +41,7 @@ export const getIssueById = cache(async (
 ): Promise<{ issue: Issue; articles: IssueArticle[] } | null> => {
   const { data, error } = await createClient()
     .from("archive")
-    .select("*, articles(*, authors(*))")
+    .select("*, articles(*, authors(*, author_affiliations(*)))")
     .eq("id", id)
     .order("created_at", { foreignTable: "articles", ascending: true })
     .maybeSingle();
@@ -58,7 +58,19 @@ export const getIssueById = cache(async (
       pdf_url: string;
       keywords: string[] | null;
       doi: string | null;
-      authors?: ArticleAuthor[];
+      authors?: Array<{
+        firstname: string;
+        middlename: string | null;
+        lastname: string;
+        orcid_no: string | null;
+        author_affiliations?: Array<{
+          school: string;
+          department: string | null;
+          city: string | null;
+          country: string | null;
+          position: number;
+        }> | null;
+      }>;
       correspondence?: string | null;
     }>;
   };
@@ -81,8 +93,14 @@ export const getIssueById = cache(async (
       firstname: author.firstname,
       middlename: author.middlename,
       lastname: author.lastname,
-      school: author.school,
-      department: author.department,
+      affiliations: [...(author.author_affiliations ?? [])]
+        .sort((a, b) => a.position - b.position)
+        .map((affiliation) => ({
+          school: affiliation.school,
+          department: affiliation.department,
+          city: affiliation.city,
+          country: affiliation.country,
+        })),
       orcid_no: author.orcid_no,
     }));
 

@@ -1,0 +1,919 @@
+From 401818ac9766343676da63240dd3028d1aad8408 Mon Sep 17 00:00:00 2001
+From: "Clarence S. Japinan"
+ <94746830+JapinanClarence@users.noreply.github.com>
+Date: Sun, 18 Oct 2026 05:32:25 +0800
+Subject: [PATCH] :sparkles: feat: support multiple institutions and
+ departments per author
+
+Move author affiliations into a new author_affiliations table so an
+author can list many institutions, each with its own department, city
+and country.
+
+- add non-destructive migration that creates author_affiliations,
+  backfills existing authors, relaxes NOT NULL on authors.school and
+  sets up RLS (old columns are kept as a backup)
+- add repeatable "Add Institution" group to the admin article form
+- update zod schema, shared types and Supabase types
+- save and load affiliations in the admin article service
+- list every affiliation under each author on the public article page
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01C7NFsxas2YEHJdq4Aen1Gy
+---
+ .../app/(dashboard)/articles/[id]/page.tsx    |  20 ++-
+ .../components/articles/article-form.tsx      |  78 ++-------
+ .../articles/author-affiliations-fields.tsx   | 142 ++++++++++++++++
+ apps/admin/services/article.ts                | 151 +++++++++++-------
+ apps/web/app/issue/[id]/[articleId]/page.tsx  |  13 +-
+ apps/web/services/issue.ts                    |  26 ++-
+ packages/schema/article.ts                    |  47 +++---
+ ...61018_create_author_affiliations_table.sql |  84 ++++++++++
+ packages/supabase/types.ts                    |  34 +++-
+ packages/types/issue.ts                       |  12 +-
+ 10 files changed, 445 insertions(+), 162 deletions(-)
+ create mode 100644 apps/admin/components/articles/author-affiliations-fields.tsx
+ create mode 100644 packages/supabase/migrations/20261018_create_author_affiliations_table.sql
+
+diff --git a/apps/admin/app/(dashboard)/articles/[id]/page.tsx b/apps/admin/app/(dashboard)/articles/[id]/page.tsx
+index fd9601b..99b95c8 100644
+--- a/apps/admin/app/(dashboard)/articles/[id]/page.tsx
++++ b/apps/admin/app/(dashboard)/articles/[id]/page.tsx
+@@ -35,22 +35,26 @@ export default async function EditArticlePage({ params }: Props) {
+             firstname: author.firstname,
+             middlename: author.middlename ?? "",
+             lastname: author.lastname,
+-            department: author.department ?? "",
+-            school: author.school ?? "",
+-            city: author.city ?? "",
+-            country: author.country ?? "",
+             orcid: author.orcid_no ?? "",
++            affiliations:
++              author.affiliations.length > 0
++                ? author.affiliations.map((affiliation) => ({
++                    school: affiliation.school,
++                    department: affiliation.department ?? "",
++                    city: affiliation.city ?? "",
++                    country: affiliation.country ?? "",
++                  }))
++                : [{ school: "", department: "", city: "", country: "" }],
+           }))
+         : [
+             {
+               firstname: "",
+               middlename: "",
+               lastname: "",
+-              department: "",
+-              school: "",
+-              city: "",
+-              country: "",
+               orcid: "",
++              affiliations: [
++                { school: "", department: "", city: "", country: "" },
++              ],
+             },
+           ],
+   };
+diff --git a/apps/admin/components/articles/article-form.tsx b/apps/admin/components/articles/article-form.tsx
+index 1cb2401..b883ca5 100644
+--- a/apps/admin/components/articles/article-form.tsx
++++ b/apps/admin/components/articles/article-form.tsx
+@@ -18,6 +18,7 @@ import {
+ import Link from "next/link";
+ import { createArticleAction, updateArticleAction } from "@/app/(dashboard)/articles/actions";
+ import { uploadPdf } from "@/services/storage";
++import { AuthorAffiliationsFields } from "@/components/articles/author-affiliations-fields";
+ import { Button } from "@gad/components/ui/button";
+ import { Input } from "@gad/components/ui/input";
+ import { Label } from "@gad/components/ui/label";
+@@ -36,15 +37,19 @@ type IssueOption = {
+   issue_no: number;
+ };
+ 
++export const EMPTY_AFFILIATION = {
++  school: "",
++  department: "",
++  city: "",
++  country: "",
++};
++
+ export const EMPTY_AUTHOR = {
+   firstname: "",
+   middlename: "",
+   lastname: "",
+-  department: "",
+-  school: "",
+-  city: "",
+-  country: "",
+   orcid: "",
++  affiliations: [{ ...EMPTY_AFFILIATION }],
+ };
+ 
+ const ARTICLE_PDF_MAX_SIZE_BYTES = 30 * 1024 * 1024; // 30MB
+@@ -56,7 +61,7 @@ export const DEFAULT_ARTICLE_VALUES: ArticleFormInput = {
+   pdf_url: "",
+   archive_id: "",
+   keywords: [],
+-  authors: [{ ...EMPTY_AUTHOR }],
++  authors: [{ ...EMPTY_AUTHOR, affiliations: [{ ...EMPTY_AFFILIATION }] }],
+   doi: "",
+   correspondence: "",
+ };
+@@ -327,7 +332,12 @@ export function ArticleForm({
+                   type="button"
+                   variant="link"
+                   size="sm"
+-                  onClick={() => appendAuthor({ ...EMPTY_AUTHOR })}
++                  onClick={() =>
++                    appendAuthor({
++                      ...EMPTY_AUTHOR,
++                      affiliations: [{ ...EMPTY_AFFILIATION }],
++                    })
++                  }
+                   className="h-auto p-0 gap-1.5 text-xs"
+                 >
+                   <UserPlus className="h-3.5 w-3.5" />
+@@ -394,61 +404,7 @@ export function ArticleForm({
+                         )}
+                       />
+                     </div>
+-                    <div className="grid sm:grid-cols-2 gap-3 mb-3">
+-                      <FormField
+-                        control={control}
+-                        name={`authors.${index}.school`}
+-                        render={({ field }) => (
+-                          <FormItem>
+-                            <FormControl>
+-                              <Input
+-                                placeholder="School / Institution *"
+-                                {...field}
+-                              />
+-                            </FormControl>
+-                            <FormMessage />
+-                          </FormItem>
+-                        )}
+-                      />
+-                      <FormField
+-                        control={control}
+-                        name={`authors.${index}.department`}
+-                        render={({ field }) => (
+-                          <FormItem>
+-                            <FormControl>
+-                              <Input placeholder="Department" {...field} />
+-                            </FormControl>
+-                            <FormMessage />
+-                          </FormItem>
+-                        )}
+-                      />
+-                    </div>
+-                    <div className="grid sm:grid-cols-2 gap-3 mb-3">
+-                      <FormField
+-                        control={control}
+-                        name={`authors.${index}.city`}
+-                        render={({ field }) => (
+-                          <FormItem>
+-                            <FormControl>
+-                              <Input placeholder="City" {...field} />
+-                            </FormControl>
+-                            <FormMessage />
+-                          </FormItem>
+-                        )}
+-                      />
+-                      <FormField
+-                        control={control}
+-                        name={`authors.${index}.country`}
+-                        render={({ field }) => (
+-                          <FormItem>
+-                            <FormControl>
+-                              <Input placeholder="Country" {...field} />
+-                            </FormControl>
+-                            <FormMessage />
+-                          </FormItem>
+-                        )}
+-                      />
+-                    </div>
++                    <AuthorAffiliationsFields authorIndex={index} />
+                     <FormField
+                       control={control}
+                       name={`authors.${index}.orcid`}
+diff --git a/apps/admin/components/articles/author-affiliations-fields.tsx b/apps/admin/components/articles/author-affiliations-fields.tsx
+new file mode 100644
+index 0000000..1ef16ae
+--- /dev/null
++++ b/apps/admin/components/articles/author-affiliations-fields.tsx
+@@ -0,0 +1,142 @@
++"use client";
++import React from "react";
++import { useFieldArray, useFormContext } from "react-hook-form";
++import { Building2, X } from "lucide-react";
++import type { ArticleFormInput } from "@gad/schema";
++import { Button } from "@gad/components/ui/button";
++import { Input } from "@gad/components/ui/input";
++import {
++  FormField,
++  FormItem,
++  FormControl,
++  FormMessage,
++} from "@gad/components/ui/form";
++
++const EMPTY_AFFILIATION = {
++  school: "",
++  department: "",
++  city: "",
++  country: "",
++};
++
++type AuthorAffiliationsFieldsProps = {
++  authorIndex: number;
++};
++
++/**
++ * Repeatable institution / department / city / country group for a single
++ * author. Lives inside the article form, so it reads the form via context.
++ */
++export function AuthorAffiliationsFields({
++  authorIndex,
++}: AuthorAffiliationsFieldsProps) {
++  const {
++    control,
++    formState: { errors },
++  } = useFormContext<ArticleFormInput>();
++
++  const { fields, append, remove } = useFieldArray({
++    control,
++    name: `authors.${authorIndex}.affiliations`,
++  });
++
++  const arrayError =
++    errors.authors?.[authorIndex]?.affiliations?.root?.message ??
++    errors.authors?.[authorIndex]?.affiliations?.message;
++
++  return (
++    <div className="mb-3 space-y-3">
++      {fields.map((affiliationField, affiliationIndex) => (
++        <div
++          key={affiliationField.id}
++          className="relative rounded-lg border border-dashed border-border p-3"
++        >
++          <div className="mb-2 flex items-center justify-between">
++            <span className="text-xs text-muted-foreground">
++              Institution {affiliationIndex + 1}
++            </span>
++            {fields.length > 1 && (
++              <Button
++                type="button"
++                variant="ghost"
++                size="icon"
++                onClick={() => remove(affiliationIndex)}
++                className="h-6 w-6 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
++                title="Remove institution"
++              >
++                <X className="h-3 w-3" />
++              </Button>
++            )}
++          </div>
++          <div className="mb-3 grid gap-3 sm:grid-cols-2">
++            <FormField
++              control={control}
++              name={`authors.${authorIndex}.affiliations.${affiliationIndex}.school`}
++              render={({ field }) => (
++                <FormItem>
++                  <FormControl>
++                    <Input placeholder="School / Institution *" {...field} />
++                  </FormControl>
++                  <FormMessage />
++                </FormItem>
++              )}
++            />
++            <FormField
++              control={control}
++              name={`authors.${authorIndex}.affiliations.${affiliationIndex}.department`}
++              render={({ field }) => (
++                <FormItem>
++                  <FormControl>
++                    <Input placeholder="Department" {...field} />
++                  </FormControl>
++                  <FormMessage />
++                </FormItem>
++              )}
++            />
++          </div>
++          <div className="grid gap-3 sm:grid-cols-2">
++            <FormField
++              control={control}
++              name={`authors.${authorIndex}.affiliations.${affiliationIndex}.city`}
++              render={({ field }) => (
++                <FormItem>
++                  <FormControl>
++                    <Input placeholder="City" {...field} />
++                  </FormControl>
++                  <FormMessage />
++                </FormItem>
++              )}
++            />
++            <FormField
++              control={control}
++              name={`authors.${authorIndex}.affiliations.${affiliationIndex}.country`}
++              render={({ field }) => (
++                <FormItem>
++                  <FormControl>
++                    <Input placeholder="Country" {...field} />
++                  </FormControl>
++                  <FormMessage />
++                </FormItem>
++              )}
++            />
++          </div>
++        </div>
++      ))}
++
++      {arrayError && (
++        <p className="text-sm font-medium text-destructive">{arrayError}</p>
++      )}
++
++      <Button
++        type="button"
++        variant="link"
++        size="sm"
++        onClick={() => append({ ...EMPTY_AFFILIATION })}
++        className="h-auto gap-1.5 p-0 text-xs"
++      >
++        <Building2 className="h-3.5 w-3.5" />
++        Add Institution
++      </Button>
++    </div>
++  );
++}
+diff --git a/apps/admin/services/article.ts b/apps/admin/services/article.ts
+index a9d5d0b..a81b940 100644
+--- a/apps/admin/services/article.ts
++++ b/apps/admin/services/article.ts
+@@ -22,28 +22,85 @@ type ServiceResult<T> =
+       data?: never;
+     };
+ 
+-function toArticleAuthor(row: {
++// Selects an author together with their affiliations. Affiliations are
++// ordered by "position" in toArticleAuthor so the primary one comes first.
++const AUTHOR_SELECT =
++  "firstname, middlename, lastname, orcid_no, author_affiliations(school, department, city, country, position)";
++
++type AuthorRow = {
+   firstname: string;
+   middlename: string | null;
+   lastname: string;
+-  department: string | null;
+-  school: string;
+-  city: string | null;
+-  country: string | null;
+   orcid_no: string | null;
+-}): ArticleAuthor {
++  author_affiliations?: Array<{
++    school: string;
++    department: string | null;
++    city: string | null;
++    country: string | null;
++    position: number;
++  }> | null;
++};
++
++function toArticleAuthor(row: AuthorRow): ArticleAuthor {
++  const affiliations = [...(row.author_affiliations ?? [])]
++    .sort((a, b) => a.position - b.position)
++    .map((affiliation) => ({
++      school: affiliation.school,
++      department: affiliation.department,
++      city: affiliation.city,
++      country: affiliation.country,
++    }));
++
+   return {
+     firstname: row.firstname,
+     middlename: row.middlename,
+     lastname: row.lastname,
+-    school: row.school,
+-    department: row.department,
+-    city: row.city,
+-    country: row.country,
++    affiliations,
+     orcid_no: row.orcid_no,
+   };
+ }
+ 
++/**
++ * Inserts the authors of an article and then each author's affiliations.
++ * Author ids are generated here so affiliations can reference them without
++ * relying on the order rows come back from the database.
++ */
++async function insertAuthors(
++  supabase: ReturnType<typeof createClient>,
++  articleId: string,
++  authors: AuthorFormInput[],
++): Promise<{ error: string | null }> {
++  const rows = authors.map((author) => ({
++    id: crypto.randomUUID(),
++    article_id: articleId,
++    firstname: author.firstname,
++    middlename: author.middlename || null,
++    lastname: author.lastname,
++    orcid_no: author.orcid || null,
++  }));
++
++  const { error: authorsError } = await supabase.from("authors").insert(rows);
++  if (authorsError) return { error: authorsError.message };
++
++  const affiliationRows = authors.flatMap((author, authorIndex) =>
++    author.affiliations.map((affiliation, position) => ({
++      author_id: rows[authorIndex].id,
++      school: affiliation.school,
++      department: affiliation.department || null,
++      city: affiliation.city || null,
++      country: affiliation.country || null,
++      position,
++    })),
++  );
++
++  const { error: affiliationsError } = await supabase
++    .from("author_affiliations")
++    .insert(affiliationRows);
++  if (affiliationsError) return { error: affiliationsError.message };
++
++  return { error: null };
++}
++
+ function toIssueArticle(
+   row: {
+     id: string;
+@@ -109,33 +166,32 @@ export async function createArticle(
+     };
+   }
+ 
+-  const { data: insertedAuthors, error: authorsError } = await supabase
+-    .from("authors")
+-    .insert(
+-      authors.map((author: AuthorFormInput) => ({
+-        article_id: article.id,
+-        firstname: author.firstname,
+-        middlename: author.middlename || null,
+-        lastname: author.lastname,
+-        department: author.department || null,
+-        school: author.school,
+-        city: author.city || null,
+-        country: author.country || null,
+-        orcid_no: author.orcid || null,
+-      })),
+-    )
+-    .select(
+-      "firstname, middlename, lastname, department, school, city, country, orcid_no",
+-    );
++  const { error: authorsError } = await insertAuthors(
++    supabase,
++    article.id,
++    authors,
++  );
+ 
+   if (authorsError) {
+     await supabase.from("articles").delete().eq("id", article.id);
+-    return { success: false, error: authorsError.message };
++    return { success: false, error: authorsError };
++  }
++
++  const { data: insertedAuthors, error: authorsFetchError } = await supabase
++    .from("authors")
++    .select(AUTHOR_SELECT)
++    .eq("article_id", article.id);
++
++  if (authorsFetchError) {
++    return { success: false, error: authorsFetchError.message };
+   }
+ 
+   return {
+     success: true,
+-    data: toIssueArticle(article, (insertedAuthors ?? []).map(toArticleAuthor)),
++    data: toIssueArticle(
++      article,
++      ((insertedAuthors ?? []) as AuthorRow[]).map(toArticleAuthor),
++    ),
+   };
+ }
+ 
+@@ -193,30 +249,17 @@ export async function updateArticle(
+       return { success: false, error: deleteError.message };
+     }
+ 
+-    const { error: authorsError } = await supabase.from("authors").insert(
+-      authors.map((author: AuthorFormInput) => ({
+-        article_id: id,
+-        firstname: author.firstname,
+-        middlename: author.middlename || null,
+-        lastname: author.lastname,
+-        department: author.department || null,
+-        school: author.school,
+-        city: author.city || null,
+-        country: author.country || null,
+-        orcid_no: author.orcid || null,
+-      })),
+-    );
++    // Deleting an author cascades to its affiliations.
++    const { error: authorsError } = await insertAuthors(supabase, id, authors);
+ 
+     if (authorsError) {
+-      return { success: false, error: authorsError.message };
++      return { success: false, error: authorsError };
+     }
+   }
+ 
+   const { data: currentAuthors, error: authorsFetchError } = await supabase
+     .from("authors")
+-    .select(
+-      "firstname, middlename, lastname, department, school, city, country, orcid_no",
+-    )
++    .select(AUTHOR_SELECT)
+     .eq("article_id", id);
+ 
+   if (authorsFetchError) {
+@@ -225,7 +268,7 @@ export async function updateArticle(
+ 
+   return {
+     success: true,
+-    data: toIssueArticle(article, (currentAuthors ?? []).map(toArticleAuthor)),
++    data: toIssueArticle(article, ((currentAuthors ?? []) as AuthorRow[]).map(toArticleAuthor)),
+   };
+ }
+ 
+@@ -325,9 +368,7 @@ export async function getArticleById(
+ 
+   const { data: authors, error: authorsError } = await supabase
+     .from("authors")
+-    .select(
+-      "firstname, middlename, lastname, department, school, city, country, orcid_no",
+-    )
++    .select(AUTHOR_SELECT)
+     .eq("article_id", id);
+ 
+   if (authorsError) {
+@@ -336,7 +377,7 @@ export async function getArticleById(
+ 
+   return {
+     success: true,
+-    data: toIssueArticle(article, (authors ?? []).map(toArticleAuthor)),
++    data: toIssueArticle(article, ((authors ?? []) as AuthorRow[]).map(toArticleAuthor)),
+   };
+ }
+ 
+@@ -358,16 +399,14 @@ export async function listArticlesByIssue(
+   for (const article of articles ?? []) {
+     const { data: authors, error: authorsError } = await supabase
+       .from("authors")
+-      .select(
+-        "firstname, middlename, lastname, department, school, city, country, orcid_no",
+-      )
++      .select(AUTHOR_SELECT)
+       .eq("article_id", article.id);
+ 
+     if (authorsError) {
+       return { success: false, error: authorsError.message };
+     }
+ 
+-    results.push(toIssueArticle(article, (authors ?? []).map(toArticleAuthor)));
++    results.push(toIssueArticle(article, ((authors ?? []) as AuthorRow[]).map(toArticleAuthor)));
+   }
+ 
+   return { success: true, data: results };
+diff --git a/apps/web/app/issue/[id]/[articleId]/page.tsx b/apps/web/app/issue/[id]/[articleId]/page.tsx
+index 56cdef7..317e11b 100644
+--- a/apps/web/app/issue/[id]/[articleId]/page.tsx
++++ b/apps/web/app/issue/[id]/[articleId]/page.tsx
+@@ -251,11 +251,16 @@ export default async function ArticleDetailPage({ params }: Props) {
+                           <p className="font-medium text-foreground/90">
+                             {formatAuthorName(author)}
+                           </p>
+-                          {author.school && (
+-                            <p className="text-muted-foreground text-xs">
+-                              {author.school}
++                          {author.affiliations.map((affiliation, affIdx) => (
++                            <p
++                              key={affIdx}
++                              className="text-muted-foreground text-xs"
++                            >
++                              {[affiliation.department, affiliation.school]
++                                .filter(Boolean)
++                                .join(", ")}
+                             </p>
+-                          )}
++                          ))}
+                           {author.orcid_no && (
+                             <a
+                               href={`https://orcid.org/${author.orcid_no}`}
+diff --git a/apps/web/services/issue.ts b/apps/web/services/issue.ts
+index 7bdaeb4..29c2d39 100644
+--- a/apps/web/services/issue.ts
++++ b/apps/web/services/issue.ts
+@@ -41,7 +41,7 @@ export const getIssueById = cache(async (
+ ): Promise<{ issue: Issue; articles: IssueArticle[] } | null> => {
+   const { data, error } = await createClient()
+     .from("archive")
+-    .select("*, articles(*, authors(*))")
++    .select("*, articles(*, authors(*, author_affiliations(*)))")
+     .eq("id", id)
+     .order("created_at", { foreignTable: "articles", ascending: true })
+     .maybeSingle();
+@@ -58,7 +58,19 @@ export const getIssueById = cache(async (
+       pdf_url: string;
+       keywords: string[] | null;
+       doi: string | null;
+-      authors?: ArticleAuthor[];
++      authors?: Array<{
++        firstname: string;
++        middlename: string | null;
++        lastname: string;
++        orcid_no: string | null;
++        author_affiliations?: Array<{
++          school: string;
++          department: string | null;
++          city: string | null;
++          country: string | null;
++          position: number;
++        }> | null;
++      }>;
+       correspondence?: string | null;
+     }>;
+   };
+@@ -81,8 +93,14 @@ export const getIssueById = cache(async (
+       firstname: author.firstname,
+       middlename: author.middlename,
+       lastname: author.lastname,
+-      school: author.school,
+-      department: author.department,
++      affiliations: [...(author.author_affiliations ?? [])]
++        .sort((a, b) => a.position - b.position)
++        .map((affiliation) => ({
++          school: affiliation.school,
++          department: affiliation.department,
++          city: affiliation.city,
++          country: affiliation.country,
++        })),
+       orcid_no: author.orcid_no,
+     }));
+ 
+diff --git a/packages/schema/article.ts b/packages/schema/article.ts
+index 2103cbd..84e1db5 100644
+--- a/packages/schema/article.ts
++++ b/packages/schema/article.ts
+@@ -2,34 +2,18 @@ import { z } from "zod";
+ 
+ const ORCID_PATTERN = /^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$/;
+ 
+-export const authorFormSchema = z.object({
+-  firstname: z
+-    .string()
+-    .trim()
+-    .min(1, "First name is required")
+-    .max(100, "First name must be at most 100 characters"),
+-  middlename: z
+-    .string()
+-    .trim()
+-    .max(100, "Middle name must be at most 100 characters")
+-    .optional()
+-    .or(z.literal("")),
+-  lastname: z
++export const affiliationFormSchema = z.object({
++  school: z
+     .string()
+     .trim()
+-    .min(1, "Last name is required")
+-    .max(100, "Last name must be at most 100 characters"),
++    .min(1, "School / institution is required")
++    .max(200, "School must be at most 200 characters"),
+   department: z
+     .string()
+     .trim()
+     .max(150, "Department must be at most 150 characters")
+     .optional()
+     .or(z.literal("")),
+-  school: z
+-    .string()
+-    .trim()
+-    .min(1, "School / institution is required")
+-    .max(200, "School must be at most 200 characters"),
+   city: z
+     .string()
+     .trim()
+@@ -42,12 +26,34 @@ export const authorFormSchema = z.object({
+     .max(100, "Country must be at most 100 characters")
+     .optional()
+     .or(z.literal("")),
++});
++
++export const authorFormSchema = z.object({
++  firstname: z
++    .string()
++    .trim()
++    .min(1, "First name is required")
++    .max(100, "First name must be at most 100 characters"),
++  middlename: z
++    .string()
++    .trim()
++    .max(100, "Middle name must be at most 100 characters")
++    .optional()
++    .or(z.literal("")),
++  lastname: z
++    .string()
++    .trim()
++    .min(1, "Last name is required")
++    .max(100, "Last name must be at most 100 characters"),
+   orcid: z
+     .string()
+     .trim()
+     .regex(ORCID_PATTERN, "Enter a valid ORCID iD, e.g. 0000-0000-0000-0000")
+     .optional()
+     .or(z.literal("")),
++  affiliations: z
++    .array(affiliationFormSchema)
++    .min(1, "At least one institution is required"),
+ });
+ 
+ export const articleFormSchema = z.object({
+@@ -86,5 +92,6 @@ export const articleFormSchema = z.object({
+   authors: z.array(authorFormSchema).min(1, "At least one author is required"),
+ });
+ 
++export type AffiliationFormInput = z.infer<typeof affiliationFormSchema>;
+ export type AuthorFormInput = z.infer<typeof authorFormSchema>;
+ export type ArticleFormInput = z.infer<typeof articleFormSchema>;
+diff --git a/packages/supabase/migrations/20261018_create_author_affiliations_table.sql b/packages/supabase/migrations/20261018_create_author_affiliations_table.sql
+new file mode 100644
+index 0000000..816e761
+--- /dev/null
++++ b/packages/supabase/migrations/20261018_create_author_affiliations_table.sql
+@@ -0,0 +1,84 @@
++-- Allows an article author to list more than one institution and department.
++-- Affiliations live in a child table ("author_affiliations"), so one author
++-- can have many affiliations.
++--
++-- SAFE TO PASTE INTO THE SUPABASE SQL EDITOR: this script is non-destructive.
++-- It does not drop or delete any column, row or table, and it can be run more
++-- than once without duplicating data.
++-- Run it BEFORE deploying the matching application code.
++
++begin;
++
++-- 1. New table -------------------------------------------------------------
++create table if not exists public.author_affiliations (
++  id uuid not null default gen_random_uuid(),
++  created_at timestamp with time zone not null default now(),
++  author_id uuid not null,
++  school text not null,
++  department text null,
++  city text null,
++  country text null,
++  position integer not null default 0,
++  constraint author_affiliations_pkey primary key (id),
++  constraint author_affiliations_author_id_fkey
++    foreign key (author_id) references public.authors (id)
++    on update cascade on delete cascade
++) tablespace pg_default;
++
++comment on table public.author_affiliations is
++  'Institutions and departments of an article author. An author can have many; position keeps the display order (0 is the primary affiliation).';
++
++create index if not exists author_affiliations_author_id_idx
++  on public.author_affiliations (author_id);
++
++-- 2. Copy existing data ------------------------------------------------------
++-- Every existing author's current school, department, city and country is
++-- copied across as their first affiliation (position 0). Authors that already
++-- have an affiliation row are skipped, so re-running does nothing.
++insert into public.author_affiliations
++  (author_id, school, department, city, country, position)
++select a.id, a.school, a.department, a.city, a.country, 0
++from public.authors a
++where a.school is not null
++  and not exists (
++    select 1
++    from public.author_affiliations aa
++    where aa.author_id = a.id
++  );
++
++-- 3. Keep the old columns, but stop requiring them --------------------------
++-- The app now writes affiliations to author_affiliations, so new authors no
++-- longer send a "school" value. The old columns stay in place (and keep their
++-- data) as a backup; only the NOT NULL rule on "school" is relaxed.
++alter table public.authors
++  alter column school drop not null;
++
++-- 4. Row level security -------------------------------------------------------
++alter table public.author_affiliations enable row level security;
++
++drop policy if exists "Author affiliations are viewable by everyone"
++  on public.author_affiliations;
++create policy "Author affiliations are viewable by everyone"
++  on public.author_affiliations
++  for select
++  using (true);
++
++drop policy if exists "Authenticated users can manage author affiliations"
++  on public.author_affiliations;
++create policy "Authenticated users can manage author affiliations"
++  on public.author_affiliations
++  for all
++  to authenticated
++  using (true)
++  with check (true);
++
++commit;
++
++-- OPTIONAL CLEANUP (do NOT run until you have checked that every author shows
++-- the right institutions on the website and in the admin dashboard):
++--
++-- alter table public.authors
++--   drop column if exists school,
++--   drop column if exists department,
++--   drop column if exists city,
++--   drop column if exists country;
+diff --git a/packages/supabase/types.ts b/packages/supabase/types.ts
+index 5b100bd..78d8e72 100644
+--- a/packages/supabase/types.ts
++++ b/packages/supabase/types.ts
+@@ -64,17 +64,13 @@ export interface Database {
+           firstname: string;
+           middlename: string | null;
+           lastname: string;
+-          department: string | null;
+-          school: string;
+-          city: string | null;
+-          country: string | null;
+           orcid_no: string | null;
+           article_id: string;
+         };
+         Insert: Omit<
+           Database["public"]["Tables"]["authors"]["Row"],
+           "id" | "created_at"
+-        >;
++        > & { id?: string };
+         Update: Partial<Database["public"]["Tables"]["authors"]["Insert"]>;
+         Relationships: [
+           {
+@@ -86,6 +82,34 @@ export interface Database {
+           },
+         ];
+       };
++      author_affiliations: {
++        Row: {
++          id: string;
++          created_at: string;
++          author_id: string;
++          school: string;
++          department: string | null;
++          city: string | null;
++          country: string | null;
++          position: number;
++        };
++        Insert: Omit<
++          Database["public"]["Tables"]["author_affiliations"]["Row"],
++          "id" | "created_at" | "position"
++        > & { position?: number };
++        Update: Partial<
++          Database["public"]["Tables"]["author_affiliations"]["Insert"]
++        >;
++        Relationships: [
++          {
++            foreignKeyName: "author_affiliations_author_id_fkey";
++            columns: ["author_id"];
++            isOneToOne: false;
++            referencedRelation: "authors";
++            referencedColumns: ["id"];
++          },
++        ];
++      };
+       summit: {
+         Row: {
+           id: string;
+diff --git a/packages/types/issue.ts b/packages/types/issue.ts
+index 8347872..e4e35da 100644
+--- a/packages/types/issue.ts
++++ b/packages/types/issue.ts
+@@ -24,13 +24,17 @@ export type IssueArticle = {
+   correspondence?: string;
+ };
+ 
++export type AuthorAffiliation = {
++  school: string;
++  department?: string | null;
++  city?: string | null;
++  country?: string | null;
++};
++
+ export type ArticleAuthor = {
+   firstname: string;
+   middlename?: string | null;
+   lastname: string;
+-  school?: string | null;
+-  department?: string | null;
+-  city?: string | null;
+-  country?: string | null;
++  affiliations: AuthorAffiliation[];
+   orcid_no?: string | null;
+ };
+-- 
+2.43.0
+

@@ -35,22 +35,26 @@ export default async function EditArticlePage({ params }: Props) {
             firstname: author.firstname,
             middlename: author.middlename ?? "",
             lastname: author.lastname,
-            department: author.department ?? "",
-            school: author.school ?? "",
-            city: author.city ?? "",
-            country: author.country ?? "",
             orcid: author.orcid_no ?? "",
+            affiliations:
+              author.affiliations.length > 0
+                ? author.affiliations.map((affiliation) => ({
+                    school: affiliation.school,
+                    department: affiliation.department ?? "",
+                    city: affiliation.city ?? "",
+                    country: affiliation.country ?? "",
+                  }))
+                : [{ school: "", department: "", city: "", country: "" }],
           }))
         : [
             {
               firstname: "",
               middlename: "",
               lastname: "",
-              department: "",
-              school: "",
-              city: "",
-              country: "",
               orcid: "",
+              affiliations: [
+                { school: "", department: "", city: "", country: "" },
+              ],
             },
           ],
   };

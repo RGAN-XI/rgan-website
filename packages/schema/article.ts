@@ -2,6 +2,32 @@ import { z } from "zod";
 
 const ORCID_PATTERN = /^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$/;
 
+export const affiliationFormSchema = z.object({
+  school: z
+    .string()
+    .trim()
+    .min(1, "School / institution is required")
+    .max(200, "School must be at most 200 characters"),
+  department: z
+    .string()
+    .trim()
+    .max(150, "Department must be at most 150 characters")
+    .optional()
+    .or(z.literal("")),
+  city: z
+    .string()
+    .trim()
+    .max(100, "City must be at most 100 characters")
+    .optional()
+    .or(z.literal("")),
+  country: z
+    .string()
+    .trim()
+    .max(100, "Country must be at most 100 characters")
+    .optional()
+    .or(z.literal("")),
+});
+
 export const authorFormSchema = z.object({
   firstname: z
     .string()
@@ -19,35 +45,15 @@ export const authorFormSchema = z.object({
     .trim()
     .min(1, "Last name is required")
     .max(100, "Last name must be at most 100 characters"),
-  department: z
-    .string()
-    .trim()
-    .max(150, "Department must be at most 150 characters")
-    .optional()
-    .or(z.literal("")),
-  school: z
-    .string()
-    .trim()
-    .min(1, "School / institution is required")
-    .max(200, "School must be at most 200 characters"),
-  city: z
-    .string()
-    .trim()
-    .max(100, "City must be at most 100 characters")
-    .optional()
-    .or(z.literal("")),
-  country: z
-    .string()
-    .trim()
-    .max(100, "Country must be at most 100 characters")
-    .optional()
-    .or(z.literal("")),
   orcid: z
     .string()
     .trim()
     .regex(ORCID_PATTERN, "Enter a valid ORCID iD, e.g. 0000-0000-0000-0000")
     .optional()
     .or(z.literal("")),
+  affiliations: z
+    .array(affiliationFormSchema)
+    .min(1, "At least one institution is required"),
 });
 
 export const articleFormSchema = z.object({
@@ -86,5 +92,6 @@ export const articleFormSchema = z.object({
   authors: z.array(authorFormSchema).min(1, "At least one author is required"),
 });
 
+export type AffiliationFormInput = z.infer<typeof affiliationFormSchema>;
 export type AuthorFormInput = z.infer<typeof authorFormSchema>;
 export type ArticleFormInput = z.infer<typeof articleFormSchema>;

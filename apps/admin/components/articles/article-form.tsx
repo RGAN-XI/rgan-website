@@ -18,6 +18,7 @@ import {
 import Link from "next/link";
 import { createArticleAction, updateArticleAction } from "@/app/(dashboard)/articles/actions";
 import { uploadPdf } from "@/services/storage";
+import { AuthorAffiliationsFields } from "@/components/articles/author-affiliations-fields";
 import { Button } from "@gad/components/ui/button";
 import { Input } from "@gad/components/ui/input";
 import { Label } from "@gad/components/ui/label";
@@ -36,15 +37,19 @@ type IssueOption = {
   issue_no: number;
 };
 
+export const EMPTY_AFFILIATION = {
+  school: "",
+  department: "",
+  city: "",
+  country: "",
+};
+
 export const EMPTY_AUTHOR = {
   firstname: "",
   middlename: "",
   lastname: "",
-  department: "",
-  school: "",
-  city: "",
-  country: "",
   orcid: "",
+  affiliations: [{ ...EMPTY_AFFILIATION }],
 };
 
 const ARTICLE_PDF_MAX_SIZE_BYTES = 30 * 1024 * 1024; // 30MB
@@ -56,7 +61,7 @@ export const DEFAULT_ARTICLE_VALUES: ArticleFormInput = {
   pdf_url: "",
   archive_id: "",
   keywords: [],
-  authors: [{ ...EMPTY_AUTHOR }],
+  authors: [{ ...EMPTY_AUTHOR, affiliations: [{ ...EMPTY_AFFILIATION }] }],
   doi: "",
   correspondence: "",
 };
@@ -327,7 +332,12 @@ export function ArticleForm({
                   type="button"
                   variant="link"
                   size="sm"
-                  onClick={() => appendAuthor({ ...EMPTY_AUTHOR })}
+                  onClick={() =>
+                    appendAuthor({
+                      ...EMPTY_AUTHOR,
+                      affiliations: [{ ...EMPTY_AFFILIATION }],
+                    })
+                  }
                   className="h-auto p-0 gap-1.5 text-xs"
                 >
                   <UserPlus className="h-3.5 w-3.5" />
@@ -394,61 +404,7 @@ export function ArticleForm({
                         )}
                       />
                     </div>
-                    <div className="grid sm:grid-cols-2 gap-3 mb-3">
-                      <FormField
-                        control={control}
-                        name={`authors.${index}.school`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormControl>
-                              <Input
-                                placeholder="School / Institution *"
-                                {...field}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={control}
-                        name={`authors.${index}.department`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormControl>
-                              <Input placeholder="Department" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                    <div className="grid sm:grid-cols-2 gap-3 mb-3">
-                      <FormField
-                        control={control}
-                        name={`authors.${index}.city`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormControl>
-                              <Input placeholder="City" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={control}
-                        name={`authors.${index}.country`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormControl>
-                              <Input placeholder="Country" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
+                    <AuthorAffiliationsFields authorIndex={index} />
                     <FormField
                       control={control}
                       name={`authors.${index}.orcid`}

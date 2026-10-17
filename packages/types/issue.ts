@@ -24,13 +24,17 @@ export type IssueArticle = {
   correspondence?: string;
 };
 
+export type AuthorAffiliation = {
+  school: string;
+  department?: string | null;
+  city?: string | null;
+  country?: string | null;
+};
+
 export type ArticleAuthor = {
   firstname: string;
   middlename?: string | null;
   lastname: string;
-  school?: string | null;
-  department?: string | null;
-  city?: string | null;
-  country?: string | null;
+  affiliations: AuthorAffiliation[];
   orcid_no?: string | null;
 };
