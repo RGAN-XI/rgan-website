@@ -15,7 +15,7 @@ import { PdfDownloadButton } from "@/components/journal/pdf-download-button";
 import { ArticleViewTracker } from "@/components/journal/article-view-tracker";
 import { Badge } from "@gad/components/ui/badge";
 import { formatDateShort } from "@/lib/utils";
-import { formatAuthorName } from "@/lib/authors";
+import { formatAffiliation, formatAuthorName } from "@/lib/authors";
 import {
   ARTICLE_FALLBACK_DESCRIPTION,
   JOURNAL_FALLBACK_TITLE,
@@ -254,11 +254,9 @@ export default async function ArticleDetailPage({ params }: Props) {
                           {author.affiliations.map((affiliation, affIdx) => (
                             <p
                               key={affIdx}
-                              className="text-muted-foreground text-xs"
+                              className="block text-muted-foreground text-xs"
                             >
-                              {[affiliation.department, affiliation.school]
-                                .filter(Boolean)
-                                .join(", ")}
+                              {formatAffiliation(affiliation)}
                             </p>
                           ))}
                           {author.orcid_no && (

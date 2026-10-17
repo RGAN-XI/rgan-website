@@ -3,7 +3,7 @@ import Link from "next/link";
 import { IssueCover } from "@/components/journal/issue-cover";
 import { PdfDownloadButton } from "@/components/journal/pdf-download-button";
 import { formatDateShort, formatYear } from "@/lib/utils";
-import { formatAuthorName } from "@/lib/authors";
+import { formatAffiliation, formatAuthorName } from "@/lib/authors";
 import { Calendar, Users } from "lucide-react";
 import type { Issue, IssueArticle } from "@gad/types/issue";
 
@@ -87,14 +87,32 @@ export function IssueContent({ issue, articles }: IssueContentProps) {
                       {article.title}
                     </Link>
                   </h3>
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                    <span className="flex items-center gap-1.5">
-                      <Users className="h-3.5 w-3.5 shrink-0" />
-                      {article.authors.length > 0
-                        ? article.authors.map(formatAuthorName).join(", ")
-                        : "RGAN XI Editorial Team"}
-                    </span>
-                    {article.pages && <span>pp. {article.pages}</span>}
+                  <div className="space-y-3 text-sm text-muted-foreground">
+                    {article.authors.length > 0 ? (
+                      article.authors.map((author, idx) => (
+                        <div key={idx} className="flex items-start gap-1.5">
+                          <Users className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                          <div className="block min-w-0">
+                            <p className="font-medium text-foreground/90">
+                              {formatAuthorName(author)}
+                            </p>
+                            {author.affiliations.map((affiliation, affIdx) => (
+                              <p key={affIdx} className="block text-xs">
+                                {formatAffiliation(affiliation)}
+                              </p>
+                            ))}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <span className="flex items-center gap-1.5">
+                        <Users className="h-3.5 w-3.5 shrink-0" />
+                        RGAN XI Editorial Team
+                      </span>
+                    )}
+                    {article.pages && (
+                      <p className="text-xs">pp. {article.pages}</p>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
