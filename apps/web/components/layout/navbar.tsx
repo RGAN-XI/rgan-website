@@ -17,8 +17,8 @@ const navLinks = [
       { label: "Our Organization", href: "/about" },
       { label: "Mission & Vision", href: "/about#mission" },
       { label: "Strategic Programs", href: "/about#strategic-programs" },
-      {label: "Our Services", href: "/about#services"},
-      {label: "Speakers & Trainers", href: "/about#speakers-trainers"},
+      { label: "Our Services", href: "/about#services" },
+      { label: "Speakers & Trainers", href: "/about#speakers-trainers" },
       { label: "Our Team", href: "/about#team" },
     ],
   },
@@ -57,7 +57,34 @@ export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const [expandedMobile, setExpandedMobile] = useState<string | null>(null);
   const pathname = usePathname();
+
+  const openMobileMenu = () => {
+    // Start with the section for the current page expanded.
+    const active = navLinks.find(
+      (link) => link.children && pathname.startsWith(link.href),
+    );
+    setExpandedMobile(active?.label ?? null);
+    setMobileOpen(true);
+  };
+
+  const closeMobileMenu = () => setMobileOpen(false);
+
+  // Close the menu after navigating to another page.
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
+  // Stop the page behind the menu from scrolling while it is open.
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [mobileOpen]);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -67,137 +94,190 @@ export function Navbar() {
   }, []);
 
   return (
-    <header
-      className={cn(
-        "fixed top-0 left-0 right-0 z-50 transition-all duration-300",
-        scrolled
-          ? "bg-white/95 backdrop-blur-md shadow-sm border-b border-border"
-          : "bg-transparent",
-      )}
-    >
-      <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 lg:h-20">
-          {/* Logo */}
-          <Link href="/" className="flex items-center gap-3 group">
-            {/* <div className=' rounded-lg gad-gradient flex items-center justify-center text-white font-display font-bold text-sm shadow-md group-hover:shadow-lg transition-shadow'></div> */}
-            <div className="w-10 h-10">
-              <Image
-                src={logo}
-                className="w-full h-full object-contain"
-                sizes="40px"
-                alt="RGAN XI Logo"
-              />
-            </div>
-            <div className="hidden sm:block">
-              <p className="font-display font-bold text-sm leading-tight text-foreground">
-                RGAN XI
-              </p>
-              <p className="text-[10px] text-muted-foreground leading-tight">
-                EST. 2023
-              </p>
-            </div>
-          </Link>
+    <>
+      <header
+        className={cn(
+          "fixed top-0 left-0 right-0 z-50 transition-all duration-300",
+          mobileOpen
+            ? "bg-white border-b border-border"
+            : scrolled
+              ? "bg-white/95 backdrop-blur-md shadow-sm border-b border-border"
+              : "bg-transparent",
+        )}
+      >
+        <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16 lg:h-20">
+            {/* Logo */}
+            <Link href="/" className="flex items-center gap-3 group">
+              {/* <div className=' rounded-lg gad-gradient flex items-center justify-center text-white font-display font-bold text-sm shadow-md group-hover:shadow-lg transition-shadow'></div> */}
+              <div className="w-10 h-10">
+                <Image
+                  src={logo}
+                  className="w-full h-full object-contain"
+                  sizes="40px"
+                  alt="RGAN XI Logo"
+                />
+              </div>
+              <div className="hidden sm:block">
+                <p className="font-display font-bold text-sm leading-tight text-foreground">
+                  RGAN XI
+                </p>
+                <p className="text-[10px] text-muted-foreground leading-tight">
+                  EST. 2023
+                </p>
+              </div>
+            </Link>
 
-          {/* Desktop Nav */}
-          <div className="hidden lg:flex items-center gap-1">
-            {navLinks.map((link) =>
-              link.children ? (
-                <div
-                  key={link.label}
-                  className="relative"
-                  onMouseEnter={() => setOpenDropdown(link.label)}
-                  onMouseLeave={() => setOpenDropdown(null)}
-                >
-                  <button
+            {/* Desktop Nav */}
+            <div className="hidden lg:flex items-center gap-1">
+              {navLinks.map((link) =>
+                link.children ? (
+                  <div
+                    key={link.label}
+                    className="relative"
+                    onMouseEnter={() => setOpenDropdown(link.label)}
+                    onMouseLeave={() => setOpenDropdown(null)}
+                  >
+                    <button
+                      className={cn(
+                        "flex items-center gap-1 px-4 py-2 rounded-md text-sm font-medium transition-colors",
+                        pathname.startsWith(link.href)
+                          ? "text-primary"
+                          : "text-foreground/70 hover:text-foreground hover:bg-muted",
+                      )}
+                    >
+                      {link.label}
+                      <ChevronDown
+                        className={cn(
+                          "h-3.5 w-3.5 transition-transform",
+                          openDropdown === link.label && "rotate-180",
+                        )}
+                      />
+                    </button>
+
+                    {openDropdown === link.label && (
+                      <div className="absolute top-full left-0 pt-2 w-56 animate-fade-up">
+                        <div className="bg-white border border-border rounded-xl shadow-lg py-2 overflow-hidden">
+                          {link.children.map((child) => (
+                            <Link
+                              key={child.href}
+                              href={child.href}
+                              className="block px-4 py-2.5 text-sm text-foreground/80 hover:text-primary hover:bg-primary/5 transition-colors"
+                            >
+                              {child.label}
+                            </Link>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <Link
+                    key={link.href}
+                    href={link.href}
                     className={cn(
-                      "flex items-center gap-1 px-4 py-2 rounded-md text-sm font-medium transition-colors",
-                      pathname.startsWith(link.href)
+                      "px-4 py-2 rounded-md text-sm font-medium transition-colors",
+                      pathname === link.href
                         ? "text-primary"
                         : "text-foreground/70 hover:text-foreground hover:bg-muted",
                     )}
                   >
                     {link.label}
-                    <ChevronDown
-                      className={cn(
-                        "h-3.5 w-3.5 transition-transform",
-                        openDropdown === link.label && "rotate-180",
-                      )}
-                    />
-                  </button>
+                  </Link>
+                ),
+              )}
+            </div>
 
-                  {openDropdown === link.label && (
-                    <div className="absolute top-full left-0 pt-2 w-56 animate-fade-up">
-                      <div className="bg-white border border-border rounded-xl shadow-lg py-2 overflow-hidden">
-                        {link.children.map((child) => (
-                          <Link
-                            key={child.href}
-                            href={child.href}
-                            className="block px-4 py-2.5 text-sm text-foreground/80 hover:text-primary hover:bg-primary/5 transition-colors"
-                          >
-                            {child.label}
-                          </Link>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
+            {/* CTA */}
+            <div className="hidden lg:flex items-center gap-3">
+              <Button variant="gad" size="sm" asChild>
+                <Link href="/issue/archive">Explore Research</Link>
+              </Button>
+            </div>
+
+            {/* Mobile toggle */}
+            <button
+              className="lg:hidden p-2 rounded-md hover:bg-muted transition-colors"
+              aria-label={mobileOpen ? "Close menu" : "Open menu"}
+              aria-expanded={mobileOpen}
+              onClick={() =>
+                mobileOpen ? closeMobileMenu() : openMobileMenu()
+              }
+            >
+              {mobileOpen ? (
+                <X className="h-5 w-5" />
               ) : (
+                <Menu className="h-5 w-5" />
+              )}
+            </button>
+          </div>
+        </nav>
+      </header>
+
+      {/* Mobile menu: full screen, scrolls when taller than the screen, sections collapse.
+        Rendered outside <header> because the header's backdrop-blur would make
+        "fixed" position relative to the header instead of the screen. */}
+      {mobileOpen && (
+        <div className="lg:hidden fixed inset-0 z-40 overflow-y-auto overscroll-contain bg-white px-4 sm:px-6 pt-20 pb-10 space-y-1">
+          {navLinks.map((link) => {
+            if (!link.children) {
+              return (
                 <Link
-                  key={link.href}
+                  key={link.label}
                   href={link.href}
                   className={cn(
-                    "px-4 py-2 rounded-md text-sm font-medium transition-colors",
+                    "block px-4 py-2.5 text-sm font-medium hover:text-primary hover:bg-primary/5 rounded-md transition-colors",
                     pathname === link.href
                       ? "text-primary"
-                      : "text-foreground/70 hover:text-foreground hover:bg-muted",
+                      : "text-foreground/80",
                   )}
+                  onClick={closeMobileMenu}
                 >
                   {link.label}
                 </Link>
-              ),
-            )}
-          </div>
+              );
+            }
 
-          {/* CTA */}
-          <div className="hidden lg:flex items-center gap-3">
-            <Button variant="gad" size="sm" asChild>
-              <Link href="/issue/archive">Explore Research</Link>
-            </Button>
-          </div>
+            const expanded = expandedMobile === link.label;
+            const panelId = `mobile-nav-${link.label
+              .toLowerCase()
+              .replace(/\s+/g, "-")}`;
 
-          {/* Mobile toggle */}
-          <button
-            className="lg:hidden p-2 rounded-md hover:bg-muted transition-colors"
-            onClick={() => setMobileOpen(!mobileOpen)}
-          >
-            {mobileOpen ? (
-              <X className="h-5 w-5" />
-            ) : (
-              <Menu className="h-5 w-5" />
-            )}
-          </button>
-        </div>
-
-        {/* Mobile Menu */}
-        {mobileOpen && (
-          <div className="lg:hidden border-t border-border bg-white/95 backdrop-blur-md py-4 space-y-1 animate-fade-up">
-            {navLinks.map((link) => (
+            return (
               <div key={link.label}>
-                <Link
-                  href={link.href}
-                  className="block px-4 py-2.5 text-sm font-medium text-foreground/80 hover:text-primary hover:bg-primary/5 rounded-md transition-colors"
-                  onClick={() => setMobileOpen(false)}
+                <button
+                  type="button"
+                  className={cn(
+                    "flex w-full items-center justify-between px-4 py-2.5 text-sm font-medium hover:text-primary hover:bg-primary/5 rounded-md transition-colors",
+                    pathname.startsWith(link.href)
+                      ? "text-primary"
+                      : "text-foreground/80",
+                  )}
+                  aria-expanded={expanded}
+                  aria-controls={panelId}
+                  onClick={() =>
+                    setExpandedMobile(expanded ? null : link.label)
+                  }
                 >
                   {link.label}
-                </Link>
-                {link.children && (
-                  <div className="ml-4 border-l border-border pl-4 space-y-1 mt-1">
+                  <ChevronDown
+                    className={cn(
+                      "h-4 w-4 transition-transform",
+                      expanded && "rotate-180",
+                    )}
+                  />
+                </button>
+                {expanded && (
+                  <div
+                    id={panelId}
+                    className="ml-4 border-l border-border pl-4 space-y-1 mt-1"
+                  >
                     {link.children.map((child) => (
                       <Link
                         key={child.href}
                         href={child.href}
                         className="block py-2 text-sm text-muted-foreground hover:text-primary transition-colors"
-                        onClick={() => setMobileOpen(false)}
+                        onClick={closeMobileMenu}
                       >
                         {child.label}
                       </Link>
@@ -205,15 +285,17 @@ export function Navbar() {
                   </div>
                 )}
               </div>
-            ))}
-            <div className="px-4 pt-2">
-              <Button variant="gad" className="w-full" asChild>
-                <Link href="/issue/archive">Explore Research</Link>
-              </Button>
-            </div>
+            );
+          })}
+          <div className="px-4 pt-2">
+            <Button variant="gad" className="w-full" asChild>
+              <Link href="/issue/archive" onClick={closeMobileMenu}>
+                Explore Research
+              </Link>
+            </Button>
           </div>
-        )}
-      </nav>
-    </header>
+        </div>
+      )}
+    </>
   );
 }
