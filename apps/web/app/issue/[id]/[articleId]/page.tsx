@@ -30,7 +30,6 @@ import {
   Mail,
   Eye,
   Download,
-  Copy,
 } from "lucide-react";
 import { Separator } from "@gad/components/ui/separator";
 
@@ -355,7 +354,7 @@ export default async function ArticleDetailPage({ params }: Props) {
                   Article Metrics
                 </p>
 
-                <div className="grid grid-cols-3 divide-x divide-border">
+                <div className="grid grid-cols-2 divide-x divide-border">
                   <div className="flex flex-col items-center text-center px-2">
                     <Eye className="h-4 w-4 text-muted-foreground mb-2" />
                     <span className="font-display font-semibold text-lg text-foreground">
@@ -376,15 +375,6 @@ export default async function ArticleDetailPage({ params }: Props) {
                     </span>
                   </div>
 
-                  <div className="flex flex-col items-center text-center px-2">
-                    <Copy className="h-4 w-4 text-muted-foreground mb-2" />
-                    <span className="font-display font-semibold text-lg text-foreground">
-                      {metrics?.citationCount ?? 0}
-                    </span>
-                    <span className="mt-0.5 text-[11px] text-muted-foreground">
-                      Citations
-                    </span>
-                  </div>
                 </div>
 
                 <Separator className="my-5" />
