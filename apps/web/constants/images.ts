@@ -65,5 +65,5 @@ export const images = {
   pej_logo,
   open_access_logo,
   openaire_logo,
-  scilit_logo
+  scilit_logo,
 };
