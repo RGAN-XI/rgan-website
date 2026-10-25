@@ -3,6 +3,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import { images } from "@/constants/images";
+import ScilitLogo from "@gad/assets/images/scilit.svg";
+
 import {
   BookOpen,
   Globe,
@@ -357,6 +359,16 @@ export default function JournalPage() {
               alt="Philippine E-Journals (PEJ) logo"
               className="h-14 w-auto object-contain grayscale hover:grayscale-0 transition-all"
             />
+             <Image
+              src={images.openaire_logo}
+              alt="Open Aire logo"
+              className="h-14 w-auto object-contain grayscale hover:grayscale-0 transition-all"
+            />
+             {/* <ScilitLogo
+              // src={images.scilit_logo}
+              // alt="SCILIT logo"
+              className="h-14 w-auto object-contain grayscale hover:grayscale-0 transition-all"
+            /> */}
           </div>
         </div>
       </section>

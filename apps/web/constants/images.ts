@@ -29,6 +29,8 @@ import asci_logo from "@/assets/images/ASCI Logo 1.png";
 import pej_logo from "@/assets/images/Philippine E-Journals.png";
 import open_access_logo from "@gad/assets/images/Open Access Logo.png";
 import dnsc_logo from "@/assets/images/Logo_DNSC.png";
+import openaire_logo from "@gad/assets/images/open_aire.webp";
+import scilit_logo from "@gad/assets/images/scilit.svg";
 
 export const images = {
   bauyot,
@@ -62,4 +64,6 @@ export const images = {
   asci_logo,
   pej_logo,
   open_access_logo,
+  openaire_logo,
+  scilit_logo
 };
