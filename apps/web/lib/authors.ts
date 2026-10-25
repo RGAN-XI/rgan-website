@@ -6,7 +6,13 @@ export function formatAuthorName(author: ArticleAuthor): string {
 }
 
 export function formatAffiliation(affiliation: AuthorAffiliation): string {
-  return [affiliation.department, affiliation.school]
+  return [affiliation.department, affiliation.school, affiliation.city, affiliation.country]
+    .filter(Boolean)
+    .join(", ");
+}
+
+export function formatAuthorAddress(address: AuthorAffiliation): string{
+  return [address.city, address.country]
     .filter(Boolean)
     .join(", ");
 }
